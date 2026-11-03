@@ -4,6 +4,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   api,
+  componentTypeText,
+  kernelText,
+  patchText,
+  phaseText,
   dateTime,
   downloadCsv,
   scanText,
@@ -20,6 +24,7 @@ import {
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 import { Agents } from './Agents'
+import { Operations } from './Operations'
 
 type Page = 'findings' | 'assets' | 'agents' | 'sources' | 'activity' | 'library'
 const nav: { id: Page; label: string; icon: string }[] = [
@@ -144,8 +149,13 @@ export default function App() {
   const [priority, setPriority] = useState('')
   const [workflow, setWorkflow] = useState('')
   const [assetFilter, setAssetFilter] = useState('')
+  const [findingView, setFindingView] = useState<'risks' | 'packages'>('risks')
+  const [componentType, setComponentType] = useState('')
+  const [patchStatus, setPatchStatus] = useState('')
+  const [exportMode, setExportMode] = useState('current')
   const [offset, setOffset] = useState(0)
   const [error, setError] = useState('')
+  const [refreshError, setRefreshError] = useState('')
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -155,6 +165,8 @@ export default function App() {
   const [inventoryAsset, setInventoryAsset] = useState<Asset | null>(null)
   const [mobile, setMobile] = useState(false)
   const requestVersion = useRef(0)
+  const refreshing = useRef(false)
+  const lastLoad = useRef({ overview: 0, assets: 0 })
 
   useEffect(() => {
     api<AppConfig>('/config')
@@ -194,47 +206,108 @@ export default function App() {
       return () => clearTimeout(timer)
     }
   }, [toast])
-  const refresh = useCallback(async () => {
-    if (!authorized) return
-    const version = ++requestVersion.current
-    try {
-      const params = new URLSearchParams({
-        search: searchQuery,
-        limit: '20',
-        offset: String(offset),
-      })
-      if (status) params.set('status', status)
-      if (priority) params.set('priority', priority)
-      if (workflow) params.set('workflow', workflow)
-      if (assetFilter) params.set('asset_id', assetFilter)
-      const [overviewData, assetsData, findingsData, scansData] = await Promise.all([
-        api<Overview>('/overview'),
-        api<Asset[]>('/assets'),
-        api<{ items: Finding[]; total: number }>(`/findings?${params}`),
-        api<Scan[]>('/scans'),
-      ])
-      if (version !== requestVersion.current) return
-      setOverview(overviewData)
-      setAssets(assetsData)
-      setFindings(findingsData.items)
-      setTotal(findingsData.total)
-      setScans(scansData)
-    } catch (err) {
-      if (version === requestVersion.current) setError(message(err))
-    } finally {
-      if (version === requestVersion.current) setLoading(false)
-    }
-  }, [authorized, searchQuery, status, priority, workflow, assetFilter, offset])
+  const findingParams = useCallback(
+    (paging = false, view = findingView) => {
+      const params = new URLSearchParams({ search: searchQuery, view })
+      if (paging) {
+        params.set('limit', '20')
+        params.set('offset', String(offset))
+      }
+      for (const [name, value] of [
+        ['status', status],
+        ['priority', priority],
+        ['workflow', workflow],
+        ['asset_id', assetFilter],
+        ['component_type', componentType],
+        ['patch_status', patchStatus],
+      ]) {
+        if (value) params.set(name, value)
+      }
+      return params
+    },
+    [
+      searchQuery,
+      findingView,
+      offset,
+      status,
+      priority,
+      workflow,
+      assetFilter,
+      componentType,
+      patchStatus,
+    ],
+  )
+  const refresh = useCallback(
+    async (force = false) => {
+      if (!authorized) return
+      const version = ++requestVersion.current
+      refreshing.current = true
+      try {
+        const updates: Promise<() => void>[] = [
+          api<Scan[]>('/scans').then((data) => () => setScans(data)),
+        ]
+        if (force || Date.now() - lastLoad.current.overview >= 15000) {
+          updates.push(
+            api<Overview>('/overview').then((data) => () => {
+              setOverview(data)
+              lastLoad.current.overview = Date.now()
+            }),
+          )
+        }
+        if (
+          (force || Date.now() - lastLoad.current.assets >= 60000) &&
+          ['findings', 'assets', 'agents'].includes(page)
+        ) {
+          updates.push(
+            api<Asset[]>('/assets').then((data) => () => {
+              setAssets(data)
+              lastLoad.current.assets = Date.now()
+            }),
+          )
+        }
+        if (page === 'findings') {
+          updates.push(
+            api<{ items: Finding[]; total: number }>(`/findings?${findingParams(true)}`).then(
+              (data) => () => {
+                setFindings(data.items)
+                setTotal(data.total)
+              },
+            ),
+          )
+        }
+        const apply = await Promise.all(updates)
+        if (version !== requestVersion.current) return
+        apply.forEach((update) => update())
+        setRefreshError('')
+      } catch (err) {
+        if (version === requestVersion.current) setRefreshError(message(err))
+      } finally {
+        if (version === requestVersion.current) {
+          refreshing.current = false
+          setLoading(false)
+        }
+      }
+    },
+    [authorized, page, findingParams],
+  )
   useEffect(() => {
     void refresh()
   }, [refresh])
   const running = scans.some((scan) => ['queued', 'running'].includes(scan.status))
   useEffect(() => {
-    if (running) {
-      const timer = setInterval(() => void refresh(), 4000)
-      return () => clearInterval(timer)
+    if (!authorized) return
+    const update = () => {
+      if (document.visibilityState === 'visible' && !refreshing.current) void refresh()
     }
-  }, [running, refresh])
+    const timer = setInterval(update, running ? 4000 : 15000)
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [authorized, running, refresh])
   const action = async (fn: () => Promise<void>) => {
     setBusy(true)
     setError('')
@@ -257,14 +330,24 @@ export default function App() {
     setPriority('')
     setWorkflow('')
     setAssetFilter('')
+    setComponentType('')
+    setPatchStatus('')
     setOffset(0)
   }
-  const hasFilters = !!(search || status || priority || workflow || assetFilter)
-  const startScan = () =>
+  const hasFilters = !!(
+    search ||
+    status ||
+    priority ||
+    workflow ||
+    assetFilter ||
+    componentType ||
+    patchStatus
+  )
+  const startScan = (forceFull = false) =>
     action(async () => {
-      await api('/scans', { method: 'POST', body: '{}' })
+      await api('/scans', { method: 'POST', body: JSON.stringify({ force_full: forceFull }) })
       setToast('Scan vorgemerkt. Der Fortschritt erscheint unter Aktivität.')
-      await refresh()
+      await refresh(true)
     })
   const login = (event: FormEvent) => {
     event.preventDefault()
@@ -465,13 +548,16 @@ export default function App() {
               <span className="demo-pill">DEMO</span>
             </div>
           )}
-          {error && (
+          {(error || refreshError) && (
             <div className="error-banner" role="alert">
               <Icon name="warning" size={18} />
-              <span>{error}</span>
+              <span>{error || refreshError}</span>
               <button
                 className="icon-button"
-                onClick={() => setError('')}
+                onClick={() => {
+                  setError('')
+                  setRefreshError('')
+                }}
                 aria-label="Fehlermeldung schließen"
               >
                 <Icon name="close" size={16} />
@@ -563,13 +649,28 @@ export default function App() {
                       </button>
                     </div>
                   )}
+                  <div className="risk-kind-summary">
+                    Risiken je Typ (Mehrfachzuordnung möglich):{' '}
+                    {['runtime', 'development', 'unknown'].map((kind) => (
+                      <button
+                        key={kind}
+                        className="text-button"
+                        onClick={() => {
+                          setComponentType(kind)
+                          setOffset(0)
+                        }}
+                      >
+                        {componentTypeText[kind]}: {overview?.component_types?.[kind] || 0}
+                      </button>
+                    ))}
+                  </div>
                   <div className="metrics-grid">
                     <Metric
-                      label="Offene Findings"
+                      label="Offene Risiken"
                       value={overview?.open_findings || 0}
                       icon="shield"
                       color="orange"
-                      note={`${overview?.affected || 0} bestätigt betroffen`}
+                      note={`${overview?.package_findings || 0} Pakettreffer · ${overview?.affected || 0} Risiken bestätigt`}
                     />
                     <Metric
                       label="Sofort handeln"
@@ -666,22 +767,98 @@ export default function App() {
                   <section className="panel findings-panel">
                     <div className="panel-heading">
                       <div className="panel-title">
-                        <h2>Findings</h2>
+                        <h2>{findingView === 'risks' ? 'Risiken' : 'Pakettreffer'}</h2>
                         <span className="count-pill">{total}</span>
                       </div>
                       <button
                         className="button subtle small"
-                        disabled={busy || !total}
+                        disabled={busy}
                         onClick={() =>
                           void action(async () => {
-                            await downloadCsv()
-                            setToast('Alle Findings wurden als CSV exportiert.')
+                            await downloadCsv(
+                              exportMode === 'all'
+                                ? new URLSearchParams({ view: 'packages' })
+                                : findingParams(
+                                    false,
+                                    exportMode === 'current'
+                                      ? findingView
+                                      : (exportMode as 'risks' | 'packages'),
+                                  ),
+                            )
+                            setToast('CSV für den gewählten Umfang exportiert.')
                           })
                         }
                       >
                         <Icon name="download" size={15} />
                         Exportieren
                       </button>
+                    </div>
+                    <div className="filters risk-controls">
+                      <label>
+                        Ansicht
+                        <select
+                          aria-label="Trefferansicht"
+                          value={findingView}
+                          onChange={(e) => {
+                            setFindingView(e.target.value as 'risks' | 'packages')
+                            setOffset(0)
+                          }}
+                        >
+                          <option value="risks">Gruppierte Risiken</option>
+                          <option value="packages">Einzelne Pakettreffer</option>
+                        </select>
+                      </label>
+                      <label>
+                        Komponententyp
+                        <select
+                          aria-label="Komponententyp filtern"
+                          value={componentType}
+                          onChange={(e) => {
+                            setComponentType(e.target.value)
+                            setOffset(0)
+                          }}
+                        >
+                          <option value="">Alle Komponententypen</option>
+                          {Object.entries(componentTypeText)
+                            .filter(([value]) => value !== 'mixed')
+                            .map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label>
+                        Fixstatus
+                        <select
+                          aria-label="Fixstatus filtern"
+                          value={patchStatus}
+                          onChange={(e) => {
+                            setPatchStatus(e.target.value)
+                            setOffset(0)
+                          }}
+                        >
+                          <option value="">Jeder Fixstatus</option>
+                          {Object.entries(patchText).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        CSV-Umfang
+                        <select
+                          aria-label="CSV-Umfang"
+                          value={exportMode}
+                          onChange={(e) => setExportMode(e.target.value)}
+                        >
+                          <option value="current">Aktuelle gefilterte Ansicht</option>
+                          <option value="risks">Gefilterte Risiken</option>
+                          <option value="packages">Gefilterte Paketdetails</option>
+                          <option value="all">Alle Paketdetails ohne Filter</option>
+                        </select>
+                      </label>
                     </div>
                     <div className="filters">
                       <div className="search-field">
@@ -804,6 +981,34 @@ export default function App() {
                                     {finding.component.name}{' '}
                                     <span>{finding.component.version || 'Version fehlt'}</span>
                                   </span>
+                                  <small className="risk-meta">
+                                    {componentTypeText[finding.component_type] || 'Ungeklärt'} ·{' '}
+                                    {patchText[finding.patch_status] || patchText.unknown}
+                                  </small>
+                                  {finding.context.kernel_status !== 'not_kernel' && (
+                                    <small className="risk-meta">
+                                      {kernelText[finding.context.kernel_status]}
+                                      {finding.context.running_kernel &&
+                                        ` · läuft: ${finding.context.running_kernel}`}
+                                    </small>
+                                  )}
+                                  {!!finding.packages?.length && (
+                                    <details className="risk-members">
+                                      <summary>{finding.package_count} Pakettreffer</summary>
+                                      <ul>
+                                        {finding.packages.map((member) => (
+                                          <li key={member.finding_id}>
+                                            <strong>{member.name}</strong> {member.version}{' '}
+                                            {member.architecture}
+                                            <br />
+                                            {componentTypeText[member.component_type]} ·{' '}
+                                            {kernelText[member.kernel_status] ||
+                                              statusText[member.status]}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </details>
+                                  )}
                                 </td>
                                 <td>
                                   <Badge status={finding.status} />
@@ -818,7 +1023,9 @@ export default function App() {
                                 <td>
                                   <span className={`workflow workflow-${finding.workflow}`}>
                                     <span className="tiny-dot" />
-                                    {workflowText[finding.workflow]}
+                                    {finding.workflow === 'mixed'
+                                      ? 'Gemischt'
+                                      : workflowText[finding.workflow]}
                                   </span>
                                 </td>
                                 <td>
@@ -996,7 +1203,7 @@ export default function App() {
               {page === 'agents' && (
                 <Agents
                   assets={assets}
-                  onRefresh={() => void refresh()}
+                  onRefresh={() => void refresh(true)}
                   onNavigateAssets={() => go('assets')}
                 />
               )}
@@ -1041,9 +1248,11 @@ export default function App() {
                               ? 'Beispielquelle · keine Live-Daten'
                               : state === 'ok'
                                 ? 'Letzter Abruf erfolgreich'
-                                : state === 'error' || state === 'partial'
-                                  ? 'Abruf prüfen'
-                                  : 'Noch nicht abgeglichen'}
+                                : state === 'skipped'
+                                  ? 'Kein passender Abgleich nötig'
+                                  : state === 'error' || state === 'partial'
+                                    ? 'Abruf prüfen'
+                                    : 'Noch nicht abgeglichen'}
                           </div>
                         </article>
                       )
@@ -1072,11 +1281,20 @@ export default function App() {
                       <h2>Abgleich-Protokoll</h2>
                       <span className="count-pill">{scans.length}</span>
                     </div>
-                    <button className="button subtle small" onClick={() => void refresh()}>
+                    <button
+                      className="button subtle small"
+                      disabled={busy || running || config.demo}
+                      onClick={() => void startScan(true)}
+                      title="Quellen erneut abrufen und gespeicherte Retry-Ergebnisse verwerfen"
+                    >
+                      Vollständig neu abgleichen
+                    </button>
+                    <button className="button subtle small" onClick={() => void refresh(true)}>
                       <Icon name="refresh" size={15} />
                       Aktualisieren
                     </button>
                   </div>
+                  <Operations />
                   {scans.length ? (
                     <div className="scan-list">
                       {scans.map((scan) => (
@@ -1101,8 +1319,10 @@ export default function App() {
                                   : 'Inventar & Schwachstellen abgleichen'}
                               </strong>
                               <span>
-                                {dateTime(scan.created_at)} · {scan.result.counts?.findings || 0}{' '}
-                                Findings geprüft
+                                {dateTime(scan.created_at)} ·{' '}
+                                {['queued', 'running'].includes(scan.status)
+                                  ? `${phaseText[scan.progress?.phase || 'prepare'] || scan.progress?.phase}: ${scan.progress?.completed || 0}${scan.progress?.total != null ? ` / ${scan.progress.total}` : ''}`
+                                  : `${scan.result.counts?.findings || 0} Pakettreffer geprüft`}
                               </span>
                             </div>
                             <span className={`scan-state scan-${scan.status}`}>
@@ -1112,11 +1332,51 @@ export default function App() {
                           </summary>
                           <div className="scan-body">
                             <dl>
+                              <dt>Letzte Aktivität</dt>
+                              <dd>{dateTime(scan.progress?.updated_at || scan.heartbeat_at)}</dd>
+                              <dt>Abrufe / wiederverwendet</dt>
+                              <dd>
+                                {scan.result.counts?.feed_requests || 0} /{' '}
+                                {scan.result.counts?.cache_hits || 0}
+                              </dd>
                               <dt>Scan-ID</dt>
                               <dd className="mono">{scan.id}</dd>
                               <dt>Abgeschlossen</dt>
                               <dd>{dateTime(scan.completed_at)}</dd>
                             </dl>
+                            {!config.demo && (
+                              <div className="scan-actions">
+                                {['queued', 'running'].includes(scan.status) ? (
+                                  <button
+                                    className="button subtle small"
+                                    disabled={busy || scan.cancel_requested}
+                                    onClick={() =>
+                                      void action(async () => {
+                                        await api(`/scans/${scan.id}/cancel`, { method: 'POST' })
+                                        await refresh(true)
+                                      })
+                                    }
+                                  >
+                                    {scan.cancel_requested ? 'Abbruch angefragt' : 'Scan abbrechen'}
+                                  </button>
+                                ) : (
+                                  ['partial', 'failed', 'cancelled'].includes(scan.status) && (
+                                    <button
+                                      className="button subtle small"
+                                      disabled={busy || running}
+                                      onClick={() =>
+                                        void action(async () => {
+                                          await api(`/scans/${scan.id}/resume`, { method: 'POST' })
+                                          await refresh(true)
+                                        })
+                                      }
+                                    >
+                                      Fortsetzen
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            )}
                             <div className="source-state-list">
                               {Object.entries(scan.result.sources || {}).map(([name, state]) => (
                                 <span key={name}>
@@ -1124,9 +1384,11 @@ export default function App() {
                                   <strong>
                                     {state === 'ok'
                                       ? 'Erfolgreich'
-                                      : state === 'demo'
-                                        ? 'Beispiel'
-                                        : 'Prüfen'}
+                                      : state === 'skipped'
+                                        ? 'Nicht benötigt'
+                                        : state === 'demo'
+                                          ? 'Beispiel'
+                                          : 'Prüfen'}
                                   </strong>
                                 </span>
                               ))}
@@ -1182,9 +1444,10 @@ export default function App() {
       {selected && (
         <FindingPanel
           id={selected}
+          grouped={findingView === 'risks'}
           onClose={() => setSelected(null)}
           onSaved={() => {
-            void refresh()
+            void refresh(true)
             setToast('Finding aktualisiert.')
           }}
           onError={setError}
@@ -1196,7 +1459,7 @@ export default function App() {
           onClose={() => setAssetForm(null)}
           onSaved={(id) => {
             setAssetForm(null)
-            void refresh()
+            void refresh(true)
             setToast('System gespeichert.')
             if (assetForm === 'new') setImportAsset(id)
           }}
@@ -1209,7 +1472,7 @@ export default function App() {
           onClose={() => setImportAsset(null)}
           onSaved={(count) => {
             setImportAsset(null)
-            void refresh()
+            void refresh(true)
             setToast(
               `${count} Komponenten importiert. Starte einen Abgleich für aktuelle Findings.`,
             )
@@ -1221,7 +1484,7 @@ export default function App() {
           asset={inventoryAsset}
           onClose={() => setInventoryAsset(null)}
           onWatch={() => {
-            void refresh()
+            void refresh(true)
             setToast('CVE wird beobachtet. Starte den Abgleich für aktuelle Quelldaten.')
           }}
         />
@@ -1534,6 +1797,15 @@ function Inventory({
                     Abgleich: {item.name} {item.version}
                   </small>
                 )}
+                {item.context && (
+                  <small>
+                    {componentTypeText[item.context.component_type]}
+                    {item.context.kernel_status !== 'not_kernel' &&
+                      ` · ${kernelText[item.context.kernel_status]}`}
+                    {item.context.running_kernel &&
+                      ` · laufender Kernel: ${item.context.running_kernel}`}
+                  </small>
+                )}
                 {item.identification?.status && (
                   <small>
                     Automatische Zuordnung: {item.identification.reason}
@@ -1622,11 +1894,13 @@ function Inventory({
 
 function FindingPanel({
   id,
+  grouped,
   onClose,
   onSaved,
   onError,
 }: {
   id: string
+  grouped: boolean
   onClose: () => void
   onSaved: () => void
   onError: (error: string) => void
@@ -1644,6 +1918,7 @@ function FindingPanel({
       setDetail(data)
       setNotes(data.notes)
       setWorkflow(data.workflow)
+      setError('')
     } catch (err) {
       setError(message(err))
     }
@@ -1654,7 +1929,10 @@ function FindingPanel({
   const save = async () => {
     setBusy(true)
     try {
-      await api(`/findings/${id}`, { method: 'PATCH', body: JSON.stringify({ workflow, notes }) })
+      await api(`/findings/${id}?grouped=${grouped}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ workflow, notes }),
+      })
       await load()
       onSaved()
     } catch (err) {
@@ -1689,6 +1967,15 @@ function FindingPanel({
               )}
             </div>
             <h2>{detail.title}</h2>
+            <p>
+              {patchText[detail.patch_status]} · {componentTypeText[detail.component_type]}
+            </p>
+            {grouped && (detail.package_count || 0) > 1 && (
+              <p>
+                Bearbeitungsstatus und Notizen gelten beim Speichern für alle {detail.package_count}{' '}
+                Pakettreffer dieses Risikos.
+              </p>
+            )}
             <p className="detail-system">
               <Icon name="server" size={16} />
               {detail.asset_name}

@@ -35,7 +35,7 @@ func platformCollect(ctx context.Context, host *protocol.Host) []protocol.Collec
 		if err != nil {
 			return []protocol.Collector{failed("apk", err)}
 		}
-		return []protocol.Collector{{ID: "apk", Complete: true, Packages: packages}}
+		return []protocol.Collector{{ID: "apk", Complete: true, Packages: annotateLinux(packages)}}
 	}
 	if _, err := exec.LookPath("dpkg-query"); err == nil {
 		data, err := command(ctx, "dpkg-query", "-W", "-f=${binary:Package}\t${Version}\t${Architecture}\t${source:Package}\t${source:Version}\t${db:Status-Abbrev}\n")
@@ -46,7 +46,7 @@ func platformCollect(ctx context.Context, host *protocol.Host) []protocol.Collec
 		if err != nil {
 			return []protocol.Collector{failed("dpkg", err)}
 		}
-		return []protocol.Collector{{ID: "dpkg", Complete: true, Packages: packages}}
+		return []protocol.Collector{{ID: "dpkg", Complete: true, Packages: annotateLinux(packages)}}
 	}
 	if _, err := exec.LookPath("rpm"); err == nil {
 		data, err := command(ctx, "rpm", "-qa", "--qf", "%{NAME}\t%{EPOCHNUM}\t%{VERSION}\t%{RELEASE}\t%{ARCH}\t%{VENDOR}\n")
@@ -57,7 +57,7 @@ func platformCollect(ctx context.Context, host *protocol.Host) []protocol.Collec
 		if err != nil {
 			return []protocol.Collector{failed("rpm", err)}
 		}
-		return []protocol.Collector{{ID: "rpm", Complete: true, Packages: packages}}
+		return []protocol.Collector{{ID: "rpm", Complete: true, Packages: annotateLinux(packages)}}
 	}
 	return []protocol.Collector{failed("system", errors.New("no supported dpkg, RPM or APK inventory found"))}
 }

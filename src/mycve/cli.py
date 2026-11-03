@@ -69,9 +69,9 @@ def main():
             migrate_schema(engine)
         factory = sessions(engine)
         with factory() as session:
-            job = ScanJob()
-            session.add(job)
-            session.commit()
+            from mycve.server.jobs import create_job
+
+            job = create_job(session)
             job_id = job.id
         run_scan(factory, settings, job_id)
         with factory() as session:

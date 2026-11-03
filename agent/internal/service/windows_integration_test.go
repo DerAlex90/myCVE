@@ -6,7 +6,10 @@
 package service
 
 import (
+	"archive/tar"
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
@@ -96,4 +100,200 @@ func TestNativeWindowsServiceLifecycle(t *testing.T) {
 	case <-time.After(120 * time.Second):
 		t.Fatal("Windows service did not send inventory")
 	}
+}
+
+// Verify real installer ACLs, upgrades and recovery without touching an existing installation.
+func TestNativeWindowsInstallerTransaction(t *testing.T) {
+	if os.Getenv("MYCVE_TEST_WINDOWS_SERVICE") != "1" {
+		t.Skip("requires isolated elevated Windows runner")
+	}
+	manager, err := mgr.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if existing, err := manager.OpenService(Name); err == nil {
+		existing.Close()
+		manager.Disconnect()
+		t.Skip("existing service must not be replaced")
+	}
+	manager.Disconnect()
+	dir := filepath.Join(t.TempDir(), "program data with spaces")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(dir, "mycve-agent.exe")
+	command := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", binary, "../../cmd/mycve-agent")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("build: %s %v", output, err)
+	}
+	delivered := make(chan bool, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var body map[string]any
+		if json.NewDecoder(request.Body).Decode(&body) != nil {
+			http.Error(writer, "invalid", 400)
+			return
+		}
+		select {
+		case delivered <- true:
+		default:
+		}
+		json.NewEncoder(writer).Encode(map[string]any{"accepted": true, "snapshot_id": body["snapshot_id"]})
+	}))
+	defer server.Close()
+	config := filepath.Join(dir, "source-config.json")
+	data, _ := json.Marshal(map[string]any{"server_url": server.URL, "agent_id": "test-agent", "token": "mycve_agent_" + strings.Repeat("x", 48), "interval_seconds": 21600, "allow_insecure_localhost": true})
+	if err := os.WriteFile(config, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	script, err := filepath.Abs("../../deploy/windows/Install.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	install := func(source string) error {
+		cmd := exec.Command("pwsh", "-NoProfile", "-NonInteractive", "-File", script, "-ConfigPath", config, "-BinaryPath", source)
+		cmd.Env = append(os.Environ(), "ProgramData="+dir)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Logf("installer result: %s", output)
+		}
+		return err
+	}
+	destination := filepath.Join(dir, "myCVE-Agent", "mycve-agent.exe")
+	defer func() {
+		exec.Command(destination, "service", "stop").Run()
+		exec.Command(destination, "service", "uninstall").Run()
+	}()
+	legacy := buildLegacyAgent040(t, dir)
+	if err := install(legacy); err != nil {
+		t.Fatalf("initial installation: %v", err)
+	}
+	select {
+	case <-delivered:
+	case <-time.After(120 * time.Second):
+		t.Fatal("installed service did not send inventory")
+	}
+	statePath := filepath.Join(dir, "myCVE-Agent", "state", "identity.json")
+	// The identity filename is deliberately discovered from the real state directory.
+	stateFiles, err := os.ReadDir(filepath.Dir(statePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := map[string]string{}
+	for _, entry := range stateFiles {
+		if !entry.IsDir() {
+			data, _ := os.ReadFile(filepath.Join(filepath.Dir(statePath), entry.Name()))
+			before[entry.Name()] = string(data)
+		}
+	}
+	if len(before) == 0 {
+		t.Fatal("device state was not persisted")
+	}
+	if err := install(binary); err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+	fakeSource := filepath.Join(dir, "broken.go")
+	fakeCode := []byte("package main\nimport \"os\"\nfunc main(){if len(os.Args)>1 && os.Args[1]==\"check\" {return}; os.Exit(23)}\n")
+	if err := os.WriteFile(fakeSource, fakeCode, 0600); err != nil {
+		t.Fatal(err)
+	}
+	fake := filepath.Join(dir, "broken.exe")
+	if output, err := exec.Command("go", "build", "-o", fake, fakeSource).CombinedOutput(); err != nil {
+		t.Fatalf("fake build: %s %v", output, err)
+	}
+	if err := install(fake); err == nil {
+		t.Fatal("broken replacement must fail")
+	}
+	original, _ := os.ReadFile(binary)
+	restored, _ := os.ReadFile(destination)
+	if string(original) != string(restored) {
+		t.Fatal("rollback did not restore original executable")
+	}
+	manager, err = mgr.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer manager.Disconnect()
+	service, err := manager.OpenService(Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
+	status, err := service.Query()
+	if err != nil || status.State != svc.Running {
+		t.Fatalf("original service is not running: %v %v", status, err)
+	}
+	for name, data := range before {
+		if strings.Contains(name, "identity") || strings.Contains(name, "device") {
+			current, _ := os.ReadFile(filepath.Join(filepath.Dir(statePath), name))
+			if string(current) != data {
+				t.Fatal("device identity changed during upgrade")
+			}
+		}
+	}
+	aclScript := filepath.Join(dir, "check-acl.ps1")
+	aclCode := []byte(`param([string]$Path)
+$acl=Get-Acl -LiteralPath $Path
+if(-not $acl.AreAccessRulesProtected){exit 1}
+$allowed=@('S-1-5-18','S-1-5-32-544')
+foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($rule.IdentityReference.Value -notin $allowed){exit 2}}
+`)
+	if err := os.WriteFile(aclScript, aclCode, 0600); err != nil {
+		t.Fatal(err)
+	}
+	aclCheck := exec.Command("pwsh", "-NoProfile", "-NonInteractive", "-File", aclScript, filepath.Join(dir, "myCVE-Agent", "config.json"))
+	if output, err := aclCheck.CombinedOutput(); err != nil {
+		t.Fatalf("configuration ACL: %s %v", output, err)
+	}
+}
+
+func buildLegacyAgent040(t *testing.T, destination string) string {
+	t.Helper()
+	archive, err := exec.Command("git", "-C", "../../..", "archive", "v0.4.0", "agent").Output()
+	if err != nil {
+		t.Fatalf("0.4.0 tag is required for the upgrade test: %v", err)
+	}
+	directory := filepath.Join(destination, "legacy-source")
+	reader := tar.NewReader(bytes.NewReader(archive))
+	for {
+		entry, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		relative := strings.TrimPrefix(entry.Name, "agent/")
+		if relative == "" {
+			continue
+		}
+		if !filepath.IsLocal(filepath.FromSlash(relative)) {
+			t.Fatal("unsafe archive path")
+		}
+		target := filepath.Join(directory, filepath.FromSlash(relative))
+		if entry.Typeflag == tar.TypeDir {
+			if err := os.MkdirAll(target, 0755); err != nil {
+				t.Fatal(err)
+			}
+		} else if entry.Typeflag == tar.TypeReg {
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				t.Fatal(err)
+			}
+			file, err := os.Create(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, copyErr := io.Copy(file, reader)
+			file.Close()
+			if copyErr != nil {
+				t.Fatal(copyErr)
+			}
+		}
+	}
+	binary := filepath.Join(destination, "legacy-0.4.exe")
+	build := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", binary, "./cmd/mycve-agent")
+	build.Dir = directory
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("legacy build: %s %v", output, err)
+	}
+	return binary
 }

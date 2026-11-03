@@ -59,6 +59,8 @@ class PackageInput(StrictInput):
     source_name: str | None = Field(default=None, max_length=500)
     source_version: str | None = Field(default=None, max_length=300)
     version_source: str | None = Field(default=None, max_length=100)
+    component_type: Literal["runtime", "development", "unknown"] = "unknown"
+    kernel_release: str | None = Field(default=None, max_length=200)
 
     def component(self) -> Component:
         return Component(
@@ -227,6 +229,8 @@ def ingest_inventory(session, agent: Agent, body: InventoryInput) -> dict:
     missing = previous_collectors - {item.id for item in body.collectors}
     partial = bool(missing) or any(not item.complete for item in body.collectors)
     changes = {"added": 0, "updated": 0, "removed": 0}
+    kernel_changed = agent.host.get("kernel") != body.host.kernel
+    host = body.host.model_dump()
     snapshot = InventorySnapshot(
         agent_id=agent.id,
         report_id=str(body.snapshot_id),
@@ -252,7 +256,9 @@ def ingest_inventory(session, agent: Agent, body: InventoryInput) -> dict:
         for package in collector.packages:
             key = checksum({"agent": agent.id, "collector": collector.id, "package": package.id})
             retained.add(key)
-            metadata = package.model_dump(mode="json")
+            metadata = package.model_dump(
+                mode="json", exclude={"component_type", "kernel_release"} - package.model_fields_set
+            )
             component = package.component().model_dump()
             component["platform"] = body.host.os
             installation = existing.get(key)
@@ -279,6 +285,11 @@ def ingest_inventory(session, agent: Agent, body: InventoryInput) -> dict:
             ) != metadata.get("architecture"):
                 installation.identification = {}
             installation.component, installation.inventory = component, metadata
+            from mycve.server.context import package_context
+
+            installation.context = package_context(metadata, component, host)
+            if kernel_changed:
+                modified.add(installation.id)
             if kind:
                 installation.updated_at = now()
                 changes[kind] += 1
@@ -319,7 +330,7 @@ def ingest_inventory(session, agent: Agent, body: InventoryInput) -> dict:
                 require(session, Vulnerability, finding.vulnerability_id),
             )
     snapshot.changes = changes
-    if any(changes.values()):
+    if any(changes.values()) or kernel_changed:
         agent.scan_pending = True
     agent.host, agent.agent_version = body.host.model_dump(), body.agent_version
     agent.collectors = [

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const Version = "0.4.0"
+const Version = "0.5.0"
 const Copyright = "Copyright (c) 2026 Alexander Speka (DerAlex90)"
 const LicenseID = "LicenseRef-myCVE-Attribution-1.0"
 const MaxBytes = 10_000_000
@@ -39,6 +39,8 @@ type Package struct {
 	SourceName    string `json:"source_name,omitempty"`
 	SourceVersion string `json:"source_version,omitempty"`
 	VersionSource string `json:"version_source,omitempty"`
+	ComponentType string `json:"component_type,omitempty"`
+	KernelRelease string `json:"kernel_release,omitempty"`
 }
 
 type Collector struct {

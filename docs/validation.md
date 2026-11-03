@@ -1,6 +1,20 @@
-# Validierung bis Version 0.4.0
+# Validierung bis Version 0.5.0
+
+## 0.5.0
+
+Für den Stand der [Softwareliste](softwareliste.md) bestehen 107 lokale Python-Fälle; in GitHub CI sind einschließlich der sechs PostgreSQL-Fälle **113 Tests** erfolgreich. Ruff, Formatprüfung, mypy, TypeScript-/Vite-Build, Go-Tests und Go-Vet sind bestanden. Elf Browserfälle prüfen die Anmeldung, alle sechs Bereiche einschließlich automatisierter WCAG-AA-Prüfungen, Hintergrundaktualisierung/Wiederverbindung, Gruppenauflösung, gefilterten CSV-Export ohne Treffer und abgelaufene Download-Authentifizierung.
+
+Gezielte Regressionen decken Kernel-/Headerkontext und Kernelwechsel ohne Paketänderung, Gruppierung ohne Verlust ursprünglicher Pakete, expliziten CSAF-Fixstatus, gemeinsame Bearbeitung einer Gruppe, gleichzeitige Job-Erzeugung unter SQLite und PostgreSQL, laufenden Fortschritt, kooperativen Abbruch und Wiederaufnahme sowie die Wiederverwendung erfolgreicher Abrufe ab. Neuere unabhängige Abgleiche verhindern das Einspielen älterer Retry-Ergebnisse. Ein synthetischer Datensatz prüft 2.777 Paketzeilen gegen 1.145 Risiken; dies bestätigt nicht das lokale Inventar des Betreibers.
+
+Die Migration wird aus einem echten 0.4-Schema mit erhaltenen Findings, Notizen und Scanprotokollen geprüft. Die Windows-CI enthält zusätzlich echte Dienstinstallation, Upgrade, Konfigurationsrechte und Rollback nach einem absichtlich fehlschlagenden Austausch. Windows-Prüfungen laufen auf dem isolierten CI-Runner; sie ersetzen keine Prüfung eines individuellen Betriebssystems oder einer benutzerdefinierten Dienstkonto-Konfiguration.
+
+Ein weiterer Live-Test lief mit eigenem PostgreSQL-Schema, separater Redis-Datenbank, Worker und Beat. Ein synthetischer Agentenbericht mit zwei Binärpaketen zum öffentlichen Beispielpaket `idna` 3.6 wurde ohne Scan-API-Aufruf automatisch verarbeitet. Die öffentlichen Quellen lieferten zwei gemeinsame Risiken mit vier erhaltenen Pakettreffern; Readiness war erfolgreich. Das Testschema und die Redis-Testdaten wurden anschließend entfernt. Dieser Test lief in der Cloud-Testumgebung und verwendet kein Inventar des Betreibers.
+
+## Frühere Prüfungen bis 0.4
 
 Stand: 3. November 2026. Die Feed- und Compose-Grundprüfungen bleiben dokumentiert. Produktzuordnung und Migrationen wurden für 0.3 geprüft; 0.4 ergänzt die sichtbare Namensnennung und die mitgelieferten Lizenztexte.
+
+Die ergänzende [Prüfung der laufenden Instanz vom 3. November](runtime-review-2026-11-03.md) dokumentiert aktuelle Laufzeitbefunde, Browserkorrekturen und weitere Betriebsverbesserungen.
 
 | Prüfung | Ergebnis |
 | --- | --- |

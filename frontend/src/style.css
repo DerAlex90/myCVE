@@ -20,6 +20,75 @@
   --orange: #d97743;
   --dark: #172820;
 }
+
+.risk-controls label {
+  font-size: 11px;
+  min-width: 145px;
+  flex: 1;
+}
+.risk-kind-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #52624b;
+  font-size: 11px;
+}
+.risk-controls select {
+  max-width: 100%;
+}
+.risk-meta {
+  display: block;
+  color: #53624a;
+  margin-top: 6px;
+  font-size: 10px;
+  white-space: normal;
+}
+.risk-members {
+  margin-top: 7px;
+  max-width: 340px;
+  white-space: normal;
+}
+.risk-members summary {
+  cursor: pointer;
+  color: #395c43;
+  font-size: 11px;
+}
+.risk-members ul {
+  padding-left: 16px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.operations {
+  margin: 0 22px 18px;
+  padding: 13px;
+  border: 1px solid #dfe6db;
+  border-radius: 6px;
+  color: #40533d;
+}
+.operations summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+.operations-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.scan-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
 * {
   box-sizing: border-box;
 }
@@ -222,7 +291,7 @@ pre {
   color: #a05a2b !important;
 }
 .purple {
-  color: #79629f;
+  color: #705593;
   background: #f1ecf7;
 }
 .blue {
@@ -234,7 +303,7 @@ pre {
   background: #fbf0e6;
 }
 .red {
-  color: #a45850;
+  color: #954b45;
   background: #f9eae7;
 }
 .green {
@@ -2313,7 +2382,7 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #7b966b;
+  color: #9ab786;
   font-size: 10px;
 }
 .login-form {

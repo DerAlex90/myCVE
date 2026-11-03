@@ -210,7 +210,7 @@ def coverage(session, *conditions) -> dict:
     return result
 
 
-def identify_inventory(session, installations, client, *, max_queries=50) -> dict:
+def identify_inventory(session, installations, client, *, max_queries=50, progress=None) -> dict:
     session.execute(
         delete(ProductIdentityCache).where(
             ProductIdentityCache.expires_at < now() - timedelta(days=7)
@@ -231,7 +231,9 @@ def identify_inventory(session, installations, client, *, max_queries=50) -> dic
     ordered = sorted(
         installations, key=lambda item: (item.identification.get("checked_at", ""), item.id)
     )
-    for installation in ordered:
+    for index, installation in enumerate(ordered):
+        if progress:
+            progress(index, len(ordered))
         original = fingerprint(installation)
         component = Component.model_validate(installation.component)
         previous = installation.identification or {}

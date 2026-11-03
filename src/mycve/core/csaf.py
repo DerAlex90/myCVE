@@ -43,12 +43,20 @@ def match_csaf(component: Component, document: dict, aliases: set[str]) -> Match
             except ValueError:
                 pass
     statuses = set()
+    fixes = set()
     for vulnerability in document.get("vulnerabilities", []):
         if vulnerability.get("cve") not in aliases:
             continue
         for status, product_ids in vulnerability.get("product_status", {}).items():
             if exact.intersection(product_ids):
                 statuses.add(status)
+        for remediation in vulnerability.get("remediations", []):
+            products = remediation.get("product_ids", [])
+            if exact and (not products or exact.intersection(products)):
+                if remediation.get("category") == "no_fix_planned":
+                    fixes.add("unavailable")
+                elif remediation.get("category") in {"vendor_fix", "optional_patch"}:
+                    fixes.add("available")
     if "known_affected" in statuses and statuses.intersection({"fixed", "known_not_affected"}):
         return MatchResult(
             status=Affectedness.UNKNOWN,
@@ -61,6 +69,11 @@ def match_csaf(component: Component, document: dict, aliases: set[str]) -> Match
             status=Affectedness.AFFECTED,
             source="BSI CSAF",
             reason="CSAF nennt diese exakte Produktversion als betroffen",
+            patch_status="available"
+            if fixes == {"available"}
+            else "unavailable"
+            if fixes == {"unavailable"}
+            else "unknown",
         )
     if statuses.intersection({"fixed", "known_not_affected"}):
         return MatchResult(

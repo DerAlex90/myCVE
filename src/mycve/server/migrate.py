@@ -25,7 +25,14 @@ def migrate_schema(engine):
             if "origin" not in columns:
                 command.stamp(config, "86082dd56fbe")
             elif {"agents", "inventory_snapshots", "inventory_changes"}.issubset(tables):
-                command.stamp(config, "head" if "identification" in columns else "ae5a55a8f79e")
+                command.stamp(
+                    config,
+                    "head"
+                    if "context" in columns
+                    else "c735cf38e815"
+                    if "identification" in columns
+                    else "ae5a55a8f79e",
+                )
             else:
                 raise RuntimeError(
                     "Unversionierte Datenbank hat ein unbekanntes Schema; vor Migration prüfen"

@@ -29,6 +29,7 @@ from mycve.core.importers import import_inventory
 from mycve.legal import AUTHOR, COPYRIGHT, LICENSE_ID, PROJECT_URL, license_text
 from mycve.server.agents import create_agent_router
 from mycve.server.config import Settings
+from mycve.server.context import package_context
 from mycve.server.db import (
     Alias,
     Asset,
@@ -44,15 +45,16 @@ from mycve.server.db import (
     require,
     sessions,
 )
+from mycve.server.finding_views import finding_json, load_findings
 from mycve.server.identification import coverage, effective_component, incomplete_filter
+from mycve.server.jobs import ScanBusy, enqueue
 from mycve.server.migrate import migrate_schema
-from mycve.server.scanner import run_scan
+from mycve.server.monitoring import operations
+from mycve.server.risks import group_findings, risk_key
 from mycve.server.services import (
-    aliases_for,
     evaluate,
     finding_snapshot,
     import_components,
-    recover_stale_jobs,
     resolve_vulnerability,
 )
 
@@ -74,6 +76,7 @@ class FindingInput(BaseModel):
 
 class ScanInput(BaseModel):
     asset_id: str | None = None
+    force_full: bool = False
 
 
 class WatchInput(BaseModel):
@@ -177,35 +180,54 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
     def public_license():
         return license_text()
 
-    def asset_json(session, asset):
+    def asset_totals(session, only_asset=None):
+        active = [Installation.active.is_(True)]
+        if only_asset:
+            active.append(Installation.asset_id == only_asset)
+        components = dict(
+            session.execute(
+                select(Installation.asset_id, func.count())
+                .where(*active)
+                .group_by(Installation.asset_id)
+            ).all()
+        )
+        risk_ids: dict[str, set[tuple]] = {}
+        for vulnerability_id, asset_id, component, inventory in session.execute(
+            select(
+                Finding.vulnerability_id,
+                Installation.asset_id,
+                Installation.component,
+                Installation.inventory,
+            )
+            .join(Installation)
+            .where(*active, Finding.status != "not_affected", Finding.workflow != "resolved")
+        ):
+            key = (
+                vulnerability_id,
+                component.get("ecosystem"),
+                inventory.get("source_name") or component["name"],
+                inventory.get("source_version") or component.get("version"),
+            )
+            risk_ids.setdefault(asset_id, set()).add(key)
+        return components, risk_ids
+
+    def asset_json(session, asset, totals=None):
+        components, risk_ids = totals if totals is not None else asset_totals(session, asset.id)
         return {
             "id": asset.id,
             **{
                 key: getattr(asset, key)
                 for key in ("name", "owner", "environment", "exposure", "criticality")
             },
-            "components": session.scalar(
-                select(func.count())
-                .select_from(Installation)
-                .where(Installation.asset_id == asset.id, Installation.active.is_(True))
-            ),
-            "open_findings": session.scalar(
-                select(func.count())
-                .select_from(Finding)
-                .join(Installation)
-                .where(
-                    Installation.asset_id == asset.id,
-                    Installation.active.is_(True),
-                    Finding.status != "not_affected",
-                    Finding.workflow != "resolved",
-                )
-            ),
+            "components": components.get(asset.id, 0),
+            "open_findings": len(risk_ids.get(asset.id, set())),
         }
 
     @app.get("/api/assets", dependencies=auth)
     def assets(session: Db):
+        totals = asset_totals(session)
         return [
-            asset_json(session, asset)
+            asset_json(session, asset, totals)
             for asset in session.scalars(select(Asset).order_by(Asset.name))
         ]
 
@@ -265,6 +287,7 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                     "origin": item.origin,
                     "inventory": item.inventory,
                     "identification": item.identification,
+                    "context": item.context or package_context(item.inventory, item.component),
                 }
                 for item in session.scalars(query.offset(offset).limit(limit))
             ],
@@ -320,29 +343,6 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 query = query.where(column == value)
         return query.order_by(Finding.priority, Finding.updated_at.desc(), Finding.id)
 
-    def finding_json(session, finding, vulnerability, installation, asset):
-        return {
-            "id": finding.id,
-            "vulnerability_id": vulnerability.id,
-            "alias": vulnerability.primary_alias,
-            "aliases": aliases_for(session, vulnerability.id),
-            "title": vulnerability.title,
-            "description": vulnerability.description,
-            "cvss": vulnerability.cvss,
-            "kev": vulnerability.kev,
-            "kev_due_date": vulnerability.kev_due_date,
-            "component": effective_component(installation).model_dump(),
-            "identification": installation.identification,
-            "installation_active": installation.active,
-            "asset_id": asset.id,
-            "asset_name": asset.name,
-            "exposure": asset.exposure,
-            "criticality": asset.criticality,
-            **finding_snapshot(finding),
-            "updated_at": finding.updated_at.isoformat(),
-            "evaluated_at": finding.evaluated_at.isoformat(),
-        }
-
     @app.get("/api/findings", dependencies=auth)
     def findings(
         session: Db,
@@ -351,21 +351,33 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
         priority: str | None = None,
         workflow: str | None = None,
         asset_id: str | None = None,
+        view: Literal["packages", "risks"] = "packages",
+        component_type: Literal["runtime", "development", "unknown"] | None = None,
+        patch_status: Literal["available", "unavailable", "unknown"] | None = None,
         limit: int = Query(30, ge=1, le=200),
         offset: int = Query(0, ge=0),
     ):
-        query = findings_query(search, status, priority, workflow, asset_id)
-        total = session.scalar(select(func.count()).select_from(query.subquery()))
-        return {
-            "items": [
-                finding_json(session, *row)
-                for row in session.execute(query.offset(offset).limit(limit))
-            ],
-            "total": total,
-        }
+        items = load_findings(
+            session,
+            findings_query(search, status, priority, workflow, asset_id),
+            view=view,
+            component_type=component_type,
+            patch_status=patch_status,
+        )
+        return {"items": items[offset : offset + limit], "total": len(items), "view": view}
 
     @app.get("/api/findings/export.csv", dependencies=auth)
-    def export(session: Db):
+    def export(
+        session: Db,
+        search: str = Query("", max_length=200),
+        status: str | None = None,
+        priority: str | None = None,
+        workflow: str | None = None,
+        asset_id: str | None = None,
+        view: Literal["packages", "risks"] = "packages",
+        component_type: Literal["runtime", "development", "unknown"] | None = None,
+        patch_status: Literal["available", "unavailable", "unknown"] | None = None,
+    ):
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
@@ -380,6 +392,22 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 "CVSS",
                 "Status",
                 "Begründung",
+                "Fixstatus",
+                "Komponententyp",
+                "Kernel-Kontext",
+                "Pakettreffer",
+                "Quellpaket",
+                "Quellversion",
+                "Architektur",
+                "PURL",
+                "CPE",
+                "Aktiv",
+                "Kernel-Release",
+                "Laufender Kernel",
+                "Versionsquelle",
+                "Finding-ID",
+                "Installation-ID",
+                "Paket-ID",
             ]
         )
 
@@ -391,21 +419,45 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 else value
             )
 
-        for finding, vulnerability, installation, asset in session.execute(findings_query()):
+        items = load_findings(
+            session,
+            findings_query(search, status, priority, workflow, asset_id),
+            view=view,
+            component_type=component_type,
+            patch_status=patch_status,
+        )
+        for item in items:
+            package = item["component"] if view == "risks" else item["package"] or item["component"]
             writer.writerow(
                 [
                     cell(value)
                     for value in [
-                        vulnerability.primary_alias,
-                        asset.name,
-                        installation.component["name"],
-                        installation.component.get("version"),
-                        finding.status,
-                        finding.priority,
-                        vulnerability.kev,
-                        vulnerability.cvss,
-                        finding.workflow,
-                        finding.reason,
+                        item["alias"],
+                        item["asset_name"],
+                        package["name"],
+                        package.get("version"),
+                        item["status"],
+                        item["priority"],
+                        item["kev"],
+                        item["cvss"],
+                        item["workflow"],
+                        item["reason"],
+                        item["patch_status"],
+                        item["component_type"],
+                        item["context"].get("kernel_status"),
+                        item.get("package_count", 1),
+                        item["component"]["name"],
+                        item["component"].get("version"),
+                        package.get("architecture"),
+                        item["component"].get("purl"),
+                        item["component"].get("cpe"),
+                        item["installation_active"],
+                        item["context"].get("kernel_release"),
+                        item["context"].get("running_kernel"),
+                        package.get("version_source"),
+                        item["id"],
+                        item.get("installation_id"),
+                        package.get("id"),
                     ]
                 ]
             )
@@ -421,6 +473,12 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
         if not row:
             raise HTTPException(404, "Finding nicht gefunden")
         result = finding_json(session, *row)
+        related = load_findings(
+            session, findings_query().where(Vulnerability.id == row[1].id, Asset.id == row[3].id)
+        )
+        members = [item for item in related if risk_key(item) == risk_key(result)]
+        result["packages"] = group_findings(members)[0]["packages"]
+        result["package_count"] = len(members)
         result["history"] = [
             {
                 "id": event.id,
@@ -456,22 +514,37 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
         return result
 
     @app.patch("/api/findings/{finding_id}", dependencies=auth)
-    def edit_finding(finding_id: str, body: FindingInput, session: Db):
+    def edit_finding(finding_id: str, body: FindingInput, session: Db, grouped: bool = False):
         finding = session.get(Finding, finding_id)
         if not finding:
             raise HTTPException(404, "Finding nicht gefunden")
-        before = finding_snapshot(finding)
-        finding.workflow, finding.notes, finding.updated_at = body.workflow, body.notes, now()
-        session.add(
-            FindingEvent(
-                finding_id=finding.id,
-                action="workflow_updated",
-                before=before,
-                after=finding_snapshot(finding),
+        targets = [finding]
+        if grouped:
+            rows = session.execute(
+                findings_query().where(Finding.vulnerability_id == finding.vulnerability_id)
+            ).all()
+            current = next(finding_json(session, *row) for row in rows if row[0].id == finding_id)
+            targets = [
+                row[0] for row in rows if risk_key(finding_json(session, *row)) == risk_key(current)
+            ]
+        for target in targets:
+            before = finding_snapshot(target)
+            target.workflow, target.notes, target.updated_at = body.workflow, body.notes, now()
+            session.add(
+                FindingEvent(
+                    finding_id=target.id,
+                    action="workflow_updated",
+                    before=before,
+                    after=finding_snapshot(target),
+                )
             )
-        )
         session.commit()
-        return {"id": finding.id, "workflow": finding.workflow, "notes": finding.notes}
+        return {
+            "id": finding.id,
+            "workflow": finding.workflow,
+            "notes": finding.notes,
+            "updated": len(targets),
+        }
 
     @app.get("/api/sources/{record_id}", dependencies=auth)
     def source(record_id: str, session: Db):
@@ -497,15 +570,15 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
             Finding.workflow != "resolved",
             Installation.active.is_(True),
         ]
-        query = select(Finding).join(Installation).where(*active)
-        groups = dict(
-            session.execute(
-                select(Finding.priority, func.count())
-                .join(Installation)
-                .where(*active)
-                .group_by(Finding.priority)
-            ).all()
-        )
+        package_items = load_findings(session, findings_query().where(*active))
+        risk_items = group_findings(package_items)
+        groups: dict[str, int] = {}
+        roles = {"runtime": 0, "development": 0, "unknown": 0}
+        for item in risk_items:
+            groups[item["priority"]] = groups.get(item["priority"], 0) + 1
+            kinds = {member.get("component_type", "unknown") for member in item["packages"]}
+            for kind in kinds:
+                roles[kind] += 1
         last = session.scalar(select(ScanJob).order_by(ScanJob.created_at.desc()))
         return {
             "assets": session.scalar(select(func.count()).select_from(Asset)),
@@ -521,22 +594,12 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 )
             ),
             "identification": coverage(session),
-            "open_findings": session.scalar(select(func.count()).select_from(query.subquery())),
-            "affected": session.scalar(
-                select(func.count()).select_from(
-                    query.where(Finding.status == "affected").subquery()
-                )
-            ),
-            "unknown": session.scalar(
-                select(func.count()).select_from(
-                    query.where(Finding.status == "unknown").subquery()
-                )
-            ),
-            "kev": session.scalar(
-                select(func.count()).select_from(
-                    query.join(Vulnerability).where(Vulnerability.kev.is_(True)).subquery()
-                )
-            ),
+            "open_findings": len(risk_items),
+            "package_findings": len(package_items),
+            "component_types": roles,
+            "affected": sum(item["status"] == "affected" for item in risk_items),
+            "unknown": sum(item["status"] == "unknown" for item in risk_items),
+            "kev": sum(item["kev"] for item in risk_items),
             "priorities": groups,
             "last_scan": job_json(last) if last else None,
         }
@@ -551,6 +614,10 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
             "result": job.result,
             "error": job.error,
+            "progress": job.progress,
+            "resume_of": job.resume_of,
+            "cancel_requested": job.cancel_requested,
+            "heartbeat_at": job.heartbeat_at.isoformat() if job.heartbeat_at else None,
         }
 
     @app.get("/api/scans", dependencies=auth)
@@ -571,30 +638,55 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
             )
         if body.asset_id and not session.get(Asset, body.asset_id):
             raise HTTPException(404, "System nicht gefunden")
-        recover_stale_jobs(session)
-        session.commit()
-        running = session.scalar(select(ScanJob).where(ScanJob.status.in_(["queued", "running"])))
-        if running:
-            raise HTTPException(409, "Ein Scan ist bereits vorgemerkt oder läuft")
-        job = ScanJob(asset_id=body.asset_id)
-        session.add(job)
-        session.commit()
-        if settings.task_mode == "inline":
-            background.add_task(run_scan, factory, settings, job.id)
-        else:
-            try:
-                from mycve.server.tasks import scan
+        return enqueue_response(
+            session,
+            background=background,
+            asset_id=body.asset_id,
+            reuse_partial=not body.force_full,
+        )
 
-                scan.delay(job.id)
-            except Exception as exc:
-                job.status, job.error, job.completed_at = (
-                    "failed",
-                    "Hintergrunddienst nicht erreichbar; Redis und Worker prüfen",
-                    now(),
-                )
-                session.commit()
-                raise HTTPException(503, job.error) from exc
+    def enqueue_response(session, background, **options):
+        try:
+            job = enqueue(session, settings, factory=factory, background=background, **options)
+        except ScanBusy as exc:
+            session.rollback()
+            raise HTTPException(409, str(exc)) from exc
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(409, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
         return job_json(job)
+
+    @app.post("/api/scans/{job_id}/cancel", dependencies=auth, status_code=202)
+    def cancel_scan(job_id: str, session: Db):
+        job = session.get(ScanJob, job_id)
+        if not job:
+            raise HTTPException(404, "Scan nicht gefunden")
+        if job.status not in {"queued", "running"}:
+            raise HTTPException(409, "Scan läuft nicht mehr")
+        job.cancel_requested = True
+        if job.status == "queued":
+            job.status, job.completed_at = "cancelled", now()
+        session.commit()
+        return job_json(job)
+
+    @app.post("/api/scans/{job_id}/resume", dependencies=auth, status_code=202)
+    def resume_scan(job_id: str, background: BackgroundTasks, session: Db):
+        if settings.demo_mode:
+            raise HTTPException(409, "Demo-Abgleiche können nicht fortgesetzt werden")
+        return enqueue_response(session, background, resume_id=job_id)
+
+    @app.get("/api/operations", dependencies=auth)
+    def operation_status(session: Db):
+        return operations(session, settings)
+
+    @app.get("/api/ready", dependencies=auth)
+    def readiness(session: Db):
+        report = operations(session, settings)
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(report, status_code=200 if report["status"] == "ok" else 503)
 
     @app.get("/{path:path}", include_in_schema=False)
     def frontend(path: str):

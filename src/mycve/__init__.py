@@ -10,4 +10,4 @@ from mycve.core.models import Component, MatchResult
 from mycve.core.priority import prioritize
 
 __all__ = ["Component", "MatchResult", "match_osv", "match_cve", "match_nvd", "prioritize"]
-__version__ = "0.4.0"
+__version__ = "0.5.0"

@@ -64,6 +64,7 @@ class FeedClient:
         self.sleep = sleep
         self.last_nvd = 0.0
         self.kev_url = KEV_URL
+        self.check_cancel = lambda: None
 
     def __enter__(self):
         return self
@@ -73,6 +74,7 @@ class FeedClient:
 
     def json(self, method: str, url: str, *, body=None, headers=None, params=None, optional=False):
         for attempt in range(3):
+            self.check_cancel()
             try:
                 with self.client.stream(
                     method, url, json=body, headers=headers, params=params
@@ -90,6 +92,7 @@ class FeedClient:
                     response.raise_for_status()
                     content = bytearray()
                     for chunk in response.iter_bytes():
+                        self.check_cancel()
                         content.extend(chunk)
                         if len(content) > 32_000_000:
                             raise FeedError("Quelldokument überschreitet 32 MB")
@@ -316,6 +319,8 @@ class FeedClient:
                 with io.BufferedReader(
                     _StreamReader(response.iter_bytes(chunk_size=65536))
                 ) as reader:
-                    yield from ijson.items(reader, "feed.entry.item")
+                    for entry in ijson.items(reader, "feed.entry.item"):
+                        self.check_cancel()
+                        yield entry
         except (httpx.HTTPError, ijson.JSONError) as exc:
             raise FeedError("BSI ROLIE-Feed konnte nicht vollständig gelesen werden") from exc

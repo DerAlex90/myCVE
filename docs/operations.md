@@ -47,6 +47,10 @@ API und manuelle CLI-Abgleiche verwenden denselben Datenbank-Lock. Celery Beat p
 
 `/health` prüft die Datenbankverbindung. Für die Betriebsüberwachung zusätzlich Worker, Redis, Beat und den letzten erfolgreichen Scan prüfen; eine gesunde API allein bestätigt keine erfolgreichen Feed-Abrufe. Die API- und Job-Fehler enthalten keine Schlüsselwerte.
 
+Ab 0.5 liefert der mit dem Workspace-Schlüssel geschützte Endpunkt `/api/operations` diese zusätzlichen Prüfungen einschließlich Queue-Länge, Worker-/Scheduler-Lebenszeichen und letzter erfolgreicher Synchronisierung. `/api/ready` liefert bei Einschränkungen `503`. Lebenszeichen gelten nach drei Minuten als überfällig; der letzte erfolgreiche vollständige Abgleich darf höchstens zwei Synchronisierungsintervalle alt sein. Ein frischer Start kann bis zum ersten Scheduler-Lebenszeichen und erfolgreichen Abgleich eingeschränkt erscheinen. Bei nativem `MYCVE_TASK_MODE=inline` sind Redis, Worker und Scheduler als nicht benötigt gekennzeichnet.
+
+Aktivität zeigt Phase, bearbeitete Einheiten und letzte Aktivität. Dort lassen sich Jobs kooperativ abbrechen und fortsetzen. Ein wiederholter Teilabgleich verwendet innerhalb von `MYCVE_SCAN_CACHE_HOURS` (Standard 6) erfolgreiche gespeicherte Abrufe, solange keine neueren unabhängigen Abgleiche vorliegen. „Vollständig neu abgleichen“ verwirft diese Wiederverwendung für den neuen Job. Temporäre Retry-Daten werden nach Erfolg beziehungsweise spätestens nach 24 Stunden bei weiteren Starts entfernt; fachliche Belege bleiben erhalten. [Softwareliste und Grenzen](softwareliste.md).
+
 ## Migrationen und Updates
 
 Der API-Entrypoint führt vor dem Start `alembic upgrade head` aus. Worker und Beat starten erst nach der API-Lebendprüfung. Vor Updates ein Backup erstellen, dann:

@@ -49,9 +49,23 @@ with httpx.Client(
 
 Erwartete Fehler: `401` für einen fehlenden oder falschen Schlüssel, `404` für unbekannte Objekte, `409` für doppelte Systemnamen oder einen laufenden Scan, `413` für zu große Dateien und `422` für ungültige Eingaben. Ein nicht erreichbarer Hintergrunddienst ergibt `503` und einen nachvollziehbar fehlgeschlagenen Job.
 
+Ein Scan führt in `result.sources` die Quellenzustände `ok`, `error`, `partial` und `skipped`. `skipped` bedeutet, dass kein passendes Inventar beziehungsweise keine zu aktualisierende Meldung für diese Quelle vorhanden war; es bestätigt keinen erfolgreichen Abruf. Bereits bekannte Meldungen werden auch ohne aktive Installationen erneut abgerufen.
+
 Die API setzt keine übergreifende CORS-Freigabe und speichert keine Cookie-Sitzung. Der Browser hält den eingegebenen Schlüssel nur im `sessionStorage` des aktuellen Tabs. Die Instanz muss für den Netzbetrieb über HTTPS bereitgestellt werden.
 
-## Öffentliche Lizenzhinweise ab 0.4
+## Risiken, Kontext und Abgleiche ab 0.5
+
+`GET /api/findings` und `GET /api/findings/export.csv` verwenden dieselben Filter `search`, `status`, `priority`, `workflow`, `asset_id`, `component_type` und `patch_status`. `view=packages` ist für bestehende API-Clients der Standard; `view=risks` gruppiert nach interner Schwachstelle, Asset, Ökosystem, Quellpaket und Quellversion. Die Weboberfläche startet mit der Risikoansicht. Gruppierte Antworten enthalten `packages`, `package_count`, `risk_id` und den ursprünglichen Finding-Bezeichner für die Detailansicht. Komponententypen sind `runtime`, `development`, `unknown`; ein gemischtes Risiko kann als `mixed` angezeigt werden. Die ursprünglichen Paketnamen, Versionen und Architekturen bleiben erhalten.
+
+Die Übersicht zählt in `open_findings`, `affected`, `unknown`, `kev` und `priorities` gruppierte Risiken. `package_findings` zählt die zugehörigen Pakettreffer. Die Zähler `component_types` können sich überlappen, wenn dasselbe Risiko beispielsweise ein Runtime- und ein Entwicklungspaket betrifft. `PATCH /api/findings/{id}?grouped=true` bearbeitet ausdrücklich alle Pakettreffer desselben Risikos und protokolliert jede Änderung. Ohne diesen Parameter bleibt die Bearbeitung auf das einzelne Finding beschränkt.
+
+`patch_status` ist `available`, `unavailable` oder `unknown`. Eine leere Liste `fixed_versions` bedeutet keinen bestätigten Mangel an Patches. Der Kontext enthält `component_type`, `kernel_status`, `kernel_release` und `running_kernel`; ein Pakettreffer allein belegt keine Betroffenheit des laufenden Kernels.
+
+Scanantworten enthalten laufend `progress` (Phase, bearbeitete Anzahl, Gesamtzahl soweit bekannt, Zeitpunkt), `heartbeat_at`, `cancel_requested` und gegebenenfalls `resume_of`. `POST /api/scans/{id}/cancel` fordert einen kooperativen Abbruch an. `POST /api/scans/{id}/resume` erstellt einen neuen Job mit Verweis auf den vorherigen und wiederverwendbaren Abrufen. Nur teilweise, fehlgeschlagene oder abgebrochene Jobs sind fortsetzbar. `POST /api/scans` mit `force_full=true` erzwingt neue Abrufe ohne Retry-Cache. Laufende oder vorgemerkte Jobs verhindern weitere gleichzeitige Starts mit `409`.
+
+`GET /api/operations` liefert den geschützten Betriebsstatus für Datenbank, Redis/Queue, Worker und Scheduler sowie den letzten erfolgreichen und letzten aktuellen Abgleich. `GET /api/ready` verwendet dieselben Prüfungen und liefert bei Einschränkungen `503`, sonst `200`. `/health` bleibt die einfache Datenbank-/HTTP-Lebendprüfung. Auch die neuen Verwaltungsrouten verlangen den Workspace-Schlüssel.
+
+## Öffentliche Lizenzhinweise
 
 `GET /license` liefert den vollständigen eigenen Lizenztext als UTF-8-Klartext. `GET /api/license` liefert Autor, Copyright, Lizenzkennung, Projekt-URL und Text als JSON. Diese statischen Hinweise sind auch ohne Workspace-Schlüssel erreichbar; Inventar- und Verwaltungsrouten bleiben geschützt. Die Weboberfläche verlinkt sie aus ihrer sichtbaren Namensnennung.
 
