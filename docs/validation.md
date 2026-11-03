@@ -8,6 +8,8 @@ Gezielte Regressionen decken Kernel-/Headerkontext und Kernelwechsel ohne Paket�
 
 Die Migration wird aus einem echten 0.4-Schema mit erhaltenen Findings, Notizen und Scanprotokollen geprüft. Die Windows-CI enthält zusätzlich echte Dienstinstallation, Upgrade, Konfigurationsrechte und Rollback nach einem absichtlich fehlschlagenden Austausch. Windows-Prüfungen laufen auf dem isolierten CI-Runner; sie ersetzen keine Prüfung eines individuellen Betriebssystems oder einer benutzerdefinierten Dienstkonto-Konfiguration.
 
+Ein weiterer Live-Test lief mit eigenem PostgreSQL-Schema, separater Redis-Datenbank, Worker und Beat. Ein synthetischer Agentenbericht mit zwei Binärpaketen zum öffentlichen Beispielpaket `idna` 3.6 wurde ohne Scan-API-Aufruf automatisch verarbeitet. Die öffentlichen Quellen lieferten zwei gemeinsame Risiken mit vier erhaltenen Pakettreffern; Readiness war erfolgreich. Das Testschema und die Redis-Testdaten wurden anschließend entfernt. Dieser Test lief in der Cloud-Testumgebung und verwendet kein Inventar des Betreibers.
+
 ## Frühere Prüfungen bis 0.4
 
 Stand: 3. November 2026. Die Feed- und Compose-Grundprüfungen bleiben dokumentiert. Produktzuordnung und Migrationen wurden für 0.3 geprüft; 0.4 ergänzt die sichtbare Namensnennung und die mitgelieferten Lizenztexte.
