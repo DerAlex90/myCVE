@@ -5,7 +5,7 @@ import hashlib
 import json
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from mycve.core.cpe import match_nvd
@@ -208,6 +208,7 @@ def finding_snapshot(finding: Finding) -> dict:
             "priority_score",
             "priority_reasons",
             "fixed_versions",
+            "patch_status",
             "checked_version",
             "workflow",
             "notes",
@@ -226,6 +227,11 @@ def evaluate(
     from mycve.server.identification import effective_component
 
     component = effective_component(installation)
+    from mycve.server.context import package_context
+
+    context = installation.context or package_context(
+        installation.inventory, installation.component
+    )
     asset = require(session, Asset, installation.asset_id)
     finding = session.scalar(
         select(Finding).where(
@@ -350,11 +356,42 @@ def evaluate(
         exposure=asset.exposure,
         criticality=asset.criticality,
     )
+    if context.get("kernel_status") in {"development", "installed"}:
+        if priority.level in {"P0", "P1"}:
+            priority.level = "P2"
+        priority.reasons.append(
+            "Entwicklungs-/Headerpaket; kein Nachweis einer betroffenen Laufzeitkomponente"
+            if context.get("component_type") == "development"
+            else "Installierter Kernel ist nicht der laufende Kernel"
+        )
+    elif context.get("component_type") == "development":
+        if priority.level == "P0":
+            priority.level = "P1"
+        priority.reasons.append(
+            "Entwicklungskomponente; Nutzung in Build- und Entwicklungsabläufen prüfen"
+        )
+    if context.get("kernel_status") != "not_kernel":
+        evidence.append(
+            {
+                "source": "Systemkontext",
+                "status": str(status),
+                "reason": f"Kernel-Kontext: {context.get('kernel_status', 'unknown')}",
+                "context": context,
+            }
+        )
     finding.status, finding.reason = str(status), reason
     finding.priority, finding.priority_score = priority.level, priority.score
     finding.priority_reasons = priority.reasons
     finding.fixed_versions = sorted(
         {version for result in results for version in result.fixed_versions}
+    )
+    patches = {result.patch_status for result in results} - {"unknown"}
+    finding.patch_status = (
+        "available"
+        if finding.fixed_versions
+        else next(iter(patches))
+        if len(patches) == 1
+        else "unknown"
     )
     finding.checked_version = component.version
     finding.evidence = evidence
@@ -449,7 +486,8 @@ def recover_stale_jobs(session: Session):
     cutoff = now() - timedelta(hours=2, minutes=5)
     for job in session.scalars(
         select(ScanJob).where(
-            ScanJob.status.in_(["queued", "running"]), ScanJob.created_at < cutoff
+            ScanJob.status.in_(["queued", "running"]),
+            func.coalesce(ScanJob.heartbeat_at, ScanJob.started_at, ScanJob.created_at) < cutoff,
         )
     ):
         job.status, job.completed_at = "failed", now()

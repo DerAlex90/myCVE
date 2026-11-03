@@ -1,16 +1,20 @@
 # Copyright (c) 2026 Alexander Speka (DerAlex90)
 # SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
 
-from sqlalchemy import select, text
+from typing import Any
+
+from sqlalchemy import delete, select, text
 
 from mycve.core.matching import match_osv
 from mycve.core.models import Affectedness, MatchResult
 from mycve.server.config import Settings
+from mycve.server.context import package_context
 from mycve.server.db import (
     Agent,
     Alias,
     Finding,
     Installation,
+    ScanCache,
     ScanJob,
     SourceRecord,
     Vulnerability,
@@ -19,6 +23,7 @@ from mycve.server.db import (
 )
 from mycve.server.feeds import CVE_PATTERN, KEV_URL, OSV_BASE, FeedClient, FeedError
 from mycve.server.identification import effective_component, identify_inventory, nvd_candidates
+from mycve.server.scan_control import CachedFeeds, ScanCancelled, ScanControl
 from mycve.server.services import (
     aliases_for,
     checksum,
@@ -29,7 +34,7 @@ from mycve.server.services import (
 )
 
 
-def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClient | None = None):
+def run_scan(session_factory, settings: Settings, job_id: str, client: Any = None):
     """Refresh known records as well as new matches. A failed source never clears findings."""
     with session_factory() as session:
         job = session.get(ScanJob, job_id)
@@ -58,9 +63,12 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
         )
         errors: list[str] = []
         counts = {"packages": 0, "osv": 0, "cve": 0, "nvd": 0, "bsi": 0, "findings": 0}
-        source_states = {}
+        source_states: dict[str, str] = {}
+        control = ScanControl(session, job, counts, source_states, errors)
+        client = CachedFeeds(client, session, job, control, settings.scan_cache_hours)
 
         def error(source, exc):
+            client.discard_last()
             errors.append(
                 f"{source}: {exc}"
                 if isinstance(exc, FeedError)
@@ -69,13 +77,31 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
             source_states[source] = "error"
 
         try:
+            control.pulse("inventory", 0, force=True)
             query = select(Installation).where(Installation.active.is_(True))
             if job.asset_id:
                 query = query.where(Installation.asset_id == job.asset_id)
             installations = session.scalars(query).all()
+            hosts = {agent.asset_id: agent.host for agent in session.scalars(select(Agent))}
+            for installation in installations:
+                installation.context = package_context(
+                    installation.inventory, installation.component, hosts.get(installation.asset_id)
+                )
             inventory_before = {item.id: checksum(item.component) for item in installations}
             identification = identify_inventory(
-                session, installations, client, max_queries=settings.identification_max_queries
+                session,
+                installations,
+                client,
+                max_queries=settings.identification_max_queries,
+                progress=lambda completed, total: control.pulse(
+                    "product_identification", completed, total
+                ),
+            )
+            control.pulse(
+                "product_identification",
+                identification["identified"],
+                len(installations),
+                force=True,
             )
             counts["identified"] = identification["identified"]
             counts["identification_pending"] = identification["pending"]
@@ -89,7 +115,8 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
             cpe_remote: dict[str, bool] = {}
             nvd_fetched: set[str] = set()
             # CPE lookups discover candidates for classic software independently of OSV.
-            for installation in installations:
+            for index, installation in enumerate(installations):
+                control.pulse("cpe", index, len(installations))
                 cpe = effective_component(installation).cpe
                 if not cpe:
                     continue
@@ -134,6 +161,7 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
             source_states["OSV"] = "skipped"
             if packages:
                 try:
+                    control.pulse("osv_query", 0, len(packages), force=True)
                     observations = client.osv_batch(packages)
                     source_states["OSV"] = "ok"
                 except (FeedError, ValueError, KeyError, TypeError) as exc:
@@ -146,7 +174,10 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                     )
                 )
             )
-            for alias in sorted(returned_ids | tracked_ids):
+            advisory_ids = sorted(returned_ids | tracked_ids)
+            control.pulse("osv_details", 0, len(advisory_ids), force=True)
+            for index, alias in enumerate(advisory_ids):
+                control.pulse("osv_details", index, len(advisory_ids))
                 try:
                     payload = client.osv_details(alias)
                     vulnerability = resolve_vulnerability(
@@ -174,7 +205,9 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                 for alias in session.scalars(select(Alias.alias))
                 if CVE_PATTERN.fullmatch(alias)
             }
-            for alias in sorted(cve_ids):
+            control.pulse("cve_enrichment", 0, len(cve_ids), force=True)
+            for index, alias in enumerate(sorted(cve_ids)):
+                control.pulse("cve_enrichment", index, len(cve_ids))
                 for source in ("CVE Program", "NVD"):
                     if source == "NVD" and alias in nvd_fetched:
                         continue
@@ -209,6 +242,7 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                 source_states.setdefault(source, "skipped")
 
             try:
+                control.pulse("kev", 0, force=True)
                 catalog = client.kev()
                 kev = {entry["cveID"]: entry for entry in catalog["vulnerabilities"]}
                 # Reset only after a complete, validated KEV catalog was received.
@@ -248,6 +282,7 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                 error("CISA KEV", exc)
 
             try:
+                control.pulse("bsi", 0, force=True)
                 known_urls = list(
                     session.scalars(
                         select(SourceRecord.url).where(
@@ -295,10 +330,14 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                     "Inventar wurde während des Scans geändert; einen weiteren Abgleich starten"
                 )
                 source_states["Inventar"] = "partial"
-            for vulnerability in session.scalars(select(Vulnerability)):
+            vulnerabilities = session.scalars(select(Vulnerability)).all()
+            for index, vulnerability in enumerate(vulnerabilities):
+                control.pulse("summaries", index, len(vulnerabilities))
                 refresh_summary(session, vulnerability)
             session.flush()
-            for installation in installations:
+            control.pulse("evaluation", 0, len(installations), force=True)
+            for index, installation in enumerate(installations):
+                control.pulse("evaluation", index, len(installations))
                 component = effective_component(installation)
                 package = (component.ecosystem, component.name, component.version)
                 ids = observations.get(package)
@@ -360,7 +399,9 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                     counts["findings"] += 1
             # Reevaluate other existing findings too: global sources may have changed.
             scanned = {installation.id for installation in installations}
-            for finding in session.scalars(select(Finding)).all():
+            historical = session.scalars(select(Finding)).all()
+            for index, finding in enumerate(historical):
+                control.pulse("historical", index, len(historical))
                 if finding.installation_id not in scanned:
                     evaluate(
                         session,
@@ -382,6 +423,25 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                 "errors": errors[:100],
             }
             job.completed_at = now()
+            if job.status == "succeeded":
+                session.execute(
+                    delete(ScanCache).where(ScanCache.scope == (job.cache_scope or job.id))
+                )
+            job.heartbeat_at = job.completed_at
+            job.progress = {
+                "phase": "completed",
+                "completed": len(installations),
+                "total": len(installations),
+                "updated_at": job.completed_at.isoformat(),
+            }
+            session.commit()
+        except ScanCancelled:
+            session.rollback()
+            job = session.get(ScanJob, job_id)
+            job.status, job.completed_at, job.heartbeat_at = "cancelled", now(), now()
+            job.error = (
+                "Abgebrochen; erfolgreiche Abrufe können beim Fortsetzen wiederverwendet werden"
+            )
             session.commit()
         except Exception as exc:
             session.rollback()

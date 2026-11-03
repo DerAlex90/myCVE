@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc/mgr"
@@ -98,8 +99,24 @@ func Manage(action, configPath, stateDir string) error {
 		}
 		existing, err := manager.OpenService(Name)
 		if err == nil {
-			existing.Close()
-			return errors.New("service already exists; use the installer to stop and replace it before upgrading")
+			defer existing.Close()
+			status, err := existing.Query()
+			if err != nil {
+				return err
+			}
+			if status.State != svc.Stopped {
+				return errors.New("stop the service before updating its configuration")
+			}
+			config, err := existing.Config()
+			if err != nil {
+				return err
+			}
+			command := []string{executable, "run", "--config", configPath}
+			if stateDir != "" {
+				command = append(command, "--state-dir", stateDir)
+			}
+			config.BinaryPathName = windows.ComposeCommandLine(command)
+			return existing.UpdateConfig(config)
 		}
 		created, err := manager.CreateService(Name, executable, mgr.Config{DisplayName: "myCVE Inventory Agent", Description: "Collects installed software and submits device-scoped inventory to myCVE.", StartType: mgr.StartAutomatic}, args...)
 		if err != nil {

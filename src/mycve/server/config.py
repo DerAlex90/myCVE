@@ -27,3 +27,4 @@ class Settings(BaseSettings):
     agent_releases_dir: Path = Path("dist/agent")
     agent_max_snapshots_per_minute: int = Field(default=10, ge=2, le=120)
     identification_max_queries: int = Field(default=50, ge=1, le=1000)
+    scan_cache_hours: int = Field(default=6, ge=1, le=24)

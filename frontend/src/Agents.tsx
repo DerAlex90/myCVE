@@ -83,6 +83,8 @@ export function Agents({
   const [agents, setAgents] = useState<Agent[]>([])
   const [downloads, setDownloads] = useState<{ name: string; bytes: number }[]>([])
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [downloadError, setDownloadError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [create, setCreate] = useState(false)
@@ -96,19 +98,21 @@ export function Agents({
   const [resetDevice, setResetDevice] = useState(false)
   const load = useCallback(async () => {
     try {
-      const [data, files] = await Promise.all([
-        api<Agent[]>('/agents'),
-        api<{ name: string; bytes: number }[]>('/agents/downloads'),
-      ])
+      const data = await api<Agent[]>('/agents')
       setAgents(data)
-      setDownloads(files)
+      setLoadError('')
     } catch (error) {
-      setError(errorText(error))
+      setLoadError(errorText(error))
     }
   }, [])
   useEffect(() => {
     void load()
-    const timer = setInterval(() => void load(), 15000)
+    api<{ name: string; bytes: number }[]>('/agents/downloads')
+      .then(setDownloads)
+      .catch((error) => setDownloadError(errorText(error)))
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') void load()
+    }, 15000)
     return () => clearInterval(timer)
   }, [load])
   const act = async (fn: () => Promise<void>) => {
@@ -169,10 +173,10 @@ export function Agents({
   }
   return (
     <>
-      {error && (
+      {(error || loadError || downloadError) && (
         <div className="error-banner" role="alert">
           <Icon name="warning" size={17} />
-          <span>{error}</span>
+          <span>{error || loadError || downloadError}</span>
           <button
             className="icon-button"
             aria-label="Fehlermeldung schließen"

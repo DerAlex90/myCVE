@@ -49,6 +49,7 @@ class MatchResult(BaseModel):
     source: str = "OSV"
     confidence: Literal["exact", "candidate"] = "exact"
     fixed_versions: list[str] = Field(default_factory=list)
+    patch_status: Literal["available", "unavailable", "unknown"] = "unknown"
 
 
 class Priority(BaseModel):

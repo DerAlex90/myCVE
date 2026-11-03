@@ -56,6 +56,8 @@ Get-Service myCVEAgent
 
 The service uses the native Windows Service Control Manager, starts automatically, and restarts on process failures. Configuration, executable and state live under `%ProgramData%\myCVE-Agent`, restricted to Administrators and SYSTEM. Runtime messages use the Windows Application Event Log, source `myCVEAgent`. `Uninstall.ps1` removes the service and retains local identity/configuration. PowerShell execution policy and organizational signing rules still apply; this source release does not claim Authenticode signing.
 
+From 0.5, upgrades validate a private staged binary and configuration and back up the old files before stopping the service. The existing service definition is updated in place. A failed replacement restores the previous files, service path and running state; if recovery itself fails, the private staging directory is retained for recovery. Device state is kept. Custom service accounts are rejected before any service change, since their file-access policy needs individual review. The Windows CI exercises actual installation, upgrade, configuration ACLs and rollback after an intentionally failing replacement.
+
 The Windows collector reads machine-wide 32/64-bit application registry entries, currently loaded user hives, Appx packages and Windows build information. It does not query `Win32_Product`, repair software or execute commands received from the server. Offline user hives and portable applications are not guaranteed to be discovered. Unavailable or restricted collectors are reported as incomplete.
 
 ## Configuration
@@ -82,6 +84,8 @@ SBOMs support CycloneDX JSON 1.4–1.7 and are read only from explicitly configu
 ## Matching accuracy
 
 After registration and service installation, collection, reporting, product identification and vulnerability scans run automatically. Server 0.3 also processes existing inventories from agent 0.2. Upgrade the server before deploying agent 0.3, which adds optional version-provenance metadata.
+
+Agent 0.5 adds optional Linux package-role and exact installed-kernel-release metadata. The existing host kernel field remains the reported running release. Update the server before installing the new agent. The server can also derive conservative kernel/header context from existing 0.2–0.4 reports; exact release evidence is required to identify a running image. A missing match is not proof that a custom kernel or backport is safe.
 
 Debian, Ubuntu and Alpine use source-package identities and their actual distribution releases. AlmaLinux, Rocky Linux and RHEL use their own OSV namespaces. Other distribution packages remain explicitly unresolved when an authoritative advisory namespace is unavailable; patched distribution versions are not reinterpreted as unpatched upstream releases.
 

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
+import { readFile } from 'node:fs/promises'
 
 test('filter, inspect evidence, update workflow and export', async ({ page }) => {
   const errors: string[] = []
@@ -230,4 +231,69 @@ test('register data sender, receive inventory, inspect changes and revoke access
   await card.getByRole('button', { name: 'Zugriff widerrufen' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Zugriff widerrufen' }).click()
   await expect(card.getByText('Widerrufen', { exact: true })).toBeVisible()
+})
+
+test('an empty filtered result exports only CSV headings', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('table')).toBeVisible()
+  const filtered = page.waitForResponse((response) =>
+    response.url().includes('search=zero-export-no-match'),
+  )
+  await page.getByRole('textbox', { name: 'Findings durchsuchen' }).fill('zero-export-no-match')
+  await filtered
+  await expect(page.getByRole('table')).toHaveCount(0)
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Exportieren', exact: true }).click()
+  const download = await downloading
+  const path = await download.path()
+  const csv = await readFile(path!, 'utf8')
+  expect(csv.trim().split(/\r?\n/)).toHaveLength(1)
+  expect(csv).toContain('Fixstatus')
+})
+
+test('grouped risk expands to the original binary packages', async ({ page }) => {
+  await page.route('**/api/findings?**', async (route) => {
+    const response = await route.fetch()
+    const data = await response.json()
+    const finding = data.items[0]
+    finding.package_count = 2
+    finding.packages = [
+      {
+        finding_id: 'runtime-member',
+        name: 'source-runtime-binary',
+        version: '1.0',
+        component_type: 'runtime',
+        kernel_status: 'not_kernel',
+        status: 'affected',
+      },
+      {
+        finding_id: 'development-member',
+        name: 'source-development-headers',
+        version: '1.0',
+        component_type: 'development',
+        kernel_status: 'development',
+        status: 'affected',
+      },
+    ]
+    await route.fulfill({ response, json: { items: [finding], total: 1 } })
+  })
+  await page.goto('/')
+  await page.getByText('2 Pakettreffer', { exact: true }).click()
+  await expect(page.getByText('source-runtime-binary', { exact: true })).toBeVisible()
+  await expect(page.getByText('source-development-headers', { exact: true })).toBeVisible()
+})
+
+test('download authentication failure returns to the login screen', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('mycve-key', 'test-browser-key'))
+  await page.route('**/api/config', (route) =>
+    route.fulfill({ json: { authentication_required: true, demo: false, version: 'test' } }),
+  )
+  await page.route('**/api/findings/export.csv?**', (route) =>
+    route.fulfill({ status: 401, json: { detail: 'API-Schlüssel ist ungültig' } }),
+  )
+  await page.goto('/')
+  await expect(page.getByRole('table')).toBeVisible()
+  await page.getByRole('button', { name: 'Exportieren', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Workspace öffnen' })).toBeVisible()
+  expect(await page.evaluate(() => sessionStorage.getItem('mycve-key'))).toBeNull()
 })

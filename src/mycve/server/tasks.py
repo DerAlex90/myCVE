@@ -4,13 +4,39 @@
 from datetime import timedelta
 
 from celery import Celery
+from celery.beat import PersistentScheduler
 from sqlalchemy import select
 
 from mycve.server.config import Settings
 from mycve.server.db import Agent, Installation, ScanJob, make_engine, now, sessions
 from mycve.server.identification import due_filter
+from mycve.server.jobs import ScanBusy, enqueue, heartbeat
 from mycve.server.scanner import run_scan
 from mycve.server.services import recover_stale_jobs
+
+
+class TrackedScheduler(PersistentScheduler):
+    def tick(self, *args, **kwargs):
+        import time
+
+        tick = time.monotonic()
+        if tick - getattr(self, "_last_heartbeat", 0) >= 30:
+            engine = make_engine(settings.database_url)
+            try:
+                with sessions(engine)() as session:
+                    heartbeat(session, "scheduler")
+                    session.commit()
+                self._last_heartbeat = tick
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Scheduler-Heartbeat konnte nicht gespeichert werden"
+                )
+            finally:
+                engine.dispose()
+        return super().tick(*args, **kwargs)
+
 
 settings = Settings()
 celery = Celery("mycve", broker=settings.redis_url, backend=settings.redis_url)
@@ -19,6 +45,7 @@ celery.conf.update(
     accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
+    beat_scheduler="mycve.server.tasks:TrackedScheduler",
     broker_connection_retry_on_startup=True,
     worker_prefetch_multiplier=1,
     task_track_started=True,
@@ -47,18 +74,12 @@ def refresh():
     engine = make_engine(settings.database_url)
     try:
         with sessions(engine)() as session:
-            recover_stale_jobs(session)
+            heartbeat(session, "worker")
             session.commit()
-            pending = session.scalar(
-                select(ScanJob).where(ScanJob.status.in_(["queued", "running"]))
-            )
-            if pending:
-                return
-            job = ScanJob()
-            session.add(job)
-            session.commit()
-            job_id = job.id
-        scan.delay(job_id)
+            try:
+                enqueue(session, settings, factory=sessions(engine), dispatch=scan.delay)
+            except ScanBusy:
+                session.rollback()
     finally:
         engine.dispose()
 
@@ -68,6 +89,7 @@ def refresh_agents():
     engine = make_engine(settings.database_url)
     try:
         with sessions(engine)() as session:
+            heartbeat(session, "worker")
             recover_stale_jobs(session)
             session.commit()
             pending = session.scalar(
@@ -82,10 +104,9 @@ def refresh_agents():
             )
             if (not pending and not unidentified) or running or recent:
                 return
-            job = ScanJob()
-            session.add(job)
-            session.commit()
-            job_id = job.id
-        scan.delay(job_id)
+            try:
+                enqueue(session, settings, factory=sessions(engine), dispatch=scan.delay)
+            except ScanBusy:
+                session.rollback()
     finally:
         engine.dispose()

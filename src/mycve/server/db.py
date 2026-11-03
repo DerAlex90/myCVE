@@ -61,6 +61,7 @@ class Installation(Base):
     )
     inventory: Mapped[dict] = mapped_column(Json, default=dict, server_default="{}")
     identification: Mapped[dict] = mapped_column(Json, default=dict, server_default="{}")
+    context: Mapped[dict] = mapped_column(Json, default=dict, server_default="{}")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
@@ -118,6 +119,9 @@ class Finding(Base):
     priority_score: Mapped[int] = mapped_column(Integer, default=0)
     priority_reasons: Mapped[list] = mapped_column(Json, default=list)
     fixed_versions: Mapped[list] = mapped_column(Json, default=list)
+    patch_status: Mapped[str] = mapped_column(
+        String(20), default="unknown", server_default="unknown"
+    )
     evidence: Mapped[list] = mapped_column(Json, default=list)
     checked_version: Mapped[str | None] = mapped_column(String(300), nullable=True)
     workflow: Mapped[str] = mapped_column(String(30), default="open")
@@ -146,6 +150,28 @@ class ScanJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     result: Mapped[dict] = mapped_column(Json, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress: Mapped[dict] = mapped_column(Json, default=dict, server_default="{}")
+    cache_scope: Mapped[str] = mapped_column(String(36), default=uid)
+    resume_of: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ScanCache(Base):
+    __tablename__ = "scan_cache"
+    __table_args__ = (UniqueConstraint("scope", "key"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    scope: Mapped[str] = mapped_column(String(36), index=True)
+    key: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(Json)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
+class RuntimeState(Base):
+    __tablename__ = "runtime_state"
+    name: Mapped[str] = mapped_column(String(80), primary_key=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    data: Mapped[dict] = mapped_column(Json, default=dict)
 
 
 class Agent(Base):

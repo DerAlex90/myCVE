@@ -29,6 +29,7 @@ export type Component = {
   id?: string
   origin?: string
   identification?: Identification
+  context?: ComponentContext
   inventory?: {
     name: string
     version?: string
@@ -56,6 +57,20 @@ export type Evidence = {
   record_id?: string
   checksum?: string
 }
+export type ComponentContext = {
+  component_type: 'runtime' | 'development' | 'unknown'
+  kernel_status: 'not_kernel' | 'running' | 'installed' | 'development' | 'unknown'
+  running_kernel?: string | null
+  kernel_release?: string | null
+}
+export type RiskPackage = ComponentContext & {
+  finding_id: string
+  name: string
+  version?: string
+  architecture?: string
+  status: string
+  priority: string
+}
 export type Finding = {
   id: string
   alias: string
@@ -82,6 +97,14 @@ export type Finding = {
   evaluated_at: string
   evidence: Evidence[]
   installation_active: boolean
+  vulnerability_id: string
+  risk_id?: string
+  package_count?: number
+  packages?: RiskPackage[]
+  package?: { name: string; version?: string; architecture?: string }
+  context: ComponentContext
+  component_type: string
+  patch_status: 'available' | 'unavailable' | 'unknown'
 }
 export type Source = {
   id: string
@@ -108,6 +131,10 @@ export type Scan = {
   created_at: string
   completed_at: string | null
   error: string | null
+  progress?: { phase: string; completed: number; total: number | null; updated_at: string }
+  resume_of?: string | null
+  cancel_requested?: boolean
+  heartbeat_at?: string | null
   result: {
     demo?: boolean
     sources?: Record<string, string>
@@ -121,6 +148,8 @@ export type Overview = {
   assets: number
   components: number
   open_findings: number
+  package_findings: number
+  component_types: Record<string, number>
   affected: number
   unknown: number
   kev: number
@@ -129,7 +158,7 @@ export type Overview = {
 }
 export type AppConfig = { authentication_required: boolean; demo: boolean; version: string }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers)
   const key = sessionStorage.getItem('mycve-key')
   if (key) headers.set('Authorization', `Bearer ${key}`)
@@ -142,19 +171,19 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       typeof body.detail === 'string' ? body.detail : `Anfrage fehlgeschlagen (${response.status})`,
     )
   }
-  return response.json() as Promise<T>
+  return response
 }
 
-export async function downloadCsv() {
-  return downloadFile('/findings/export.csv', 'mycve-findings.csv')
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return (await request(path, init)).json() as Promise<T>
+}
+
+export async function downloadCsv(params = new URLSearchParams()) {
+  return downloadFile(`/findings/export.csv?${params}`, 'mycve-findings.csv')
 }
 
 export async function downloadFile(path: string, filename: string) {
-  const key = sessionStorage.getItem('mycve-key')
-  const response = await fetch(`/api${path}`, {
-    headers: key ? { Authorization: `Bearer ${key}` } : {},
-  })
-  if (!response.ok) throw new Error('Download fehlgeschlagen')
+  const response = await request(path)
   const url = URL.createObjectURL(await response.blob())
   const anchor = document.createElement('a')
   anchor.href = url
@@ -180,6 +209,39 @@ export const scanText: Record<string, string> = {
   succeeded: 'Abgeschlossen',
   partial: 'Teilweise abgeschlossen',
   failed: 'Fehlgeschlagen',
+  cancelled: 'Abgebrochen',
+}
+export const componentTypeText: Record<string, string> = {
+  runtime: 'Runtime',
+  development: 'Development / Header',
+  unknown: 'Ungeklärt',
+  mixed: 'Gemischt',
+}
+export const kernelText: Record<string, string> = {
+  running: 'Laufender Kernel',
+  installed: 'Installierter, nicht laufender Kernel',
+  development: 'Kernel-Header / Entwicklung',
+  unknown: 'Kernel-Kontext ungeklärt',
+}
+export const patchText: Record<string, string> = {
+  available: 'Fix verfügbar',
+  unavailable: 'Kein Fix veröffentlicht / geplant',
+  unknown: 'Fixstatus unbekannt',
+}
+export const phaseText: Record<string, string> = {
+  inventory: 'Inventar vorbereiten',
+  product_identification: 'Produkte zuordnen',
+  cpe: 'CPE-Abgleich',
+  osv_query: 'Pakete bei OSV abfragen',
+  osv_details: 'OSV-Meldungen verarbeiten',
+  cve_enrichment: 'CVE und NVD ergänzen',
+  kev: 'Bekannte Ausnutzung prüfen',
+  bsi: 'BSI-Hinweise prüfen',
+  evaluation: 'Betroffenheit bewerten',
+  summaries: 'Quellenbewertungen zusammenführen',
+  historical: 'Vorhandene Befunde erneut prüfen',
+  completed: 'Abgeschlossen',
+  prepare: 'Vorbereiten',
 }
 export function dateTime(value?: string | null) {
   if (!value) return 'Noch kein Abruf'

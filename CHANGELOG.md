@@ -1,5 +1,16 @@
 # Änderungen
 
+## 0.5.0
+
+- Gruppierte Risiken mit erhaltenen Binärpaketen, Komponententyp-/Fixstatusfiltern und getrennten Risikozählern.
+- Exakter Kernel-Kontext und getrennte Bewertung von laufenden Images, installierten Images und Entwicklungspaketen; neuer Bericht auch bei einem Kernelwechsel ausreichend.
+- Gesicherte Windows-Upgrades mit Vorprüfung, privaten Dateien und automatischem Wiederherstellungsversuch ohne Entfernen der bestehenden Dienstdefinition.
+- Gespeicherte erfolgreiche Feed-Resultate für Teilwiederholungen, Fortschritt, kooperativer Abbruch und nachvollziehbare Fortsetzung.
+- Filtergerechter CSV-Export mit ausdrücklich wählbarem Umfang; einheitliche Authentifizierung für Daten und Downloads.
+- Geschützter Betriebsstatus mit Queue und Worker-/Scheduler-Lebenszeichen; gemeinsame Scan-Erzeugung und effizientere Systemlisten.
+- Automatische, auf die geöffnete Ansicht abgestimmte Aktualisierung sowie Kontrastkorrekturen aus der Laufzeitprüfung.
+- Migration für vorhandene Datenbanken; [Softwareliste, Grenzen und nachgelagerte Arbeit](docs/softwareliste.md).
+
 ## 0.4.0
 
 - Namensnennung und Copyright für Alexander Speka (DerAlex90) in README, Oberfläche, CLI und Paketen.

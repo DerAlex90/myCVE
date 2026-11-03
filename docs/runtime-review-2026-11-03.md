@@ -2,6 +2,8 @@
 
 Stand: 3. November 2026, Europe/Berlin. Geprüft wurde die hier laufende Compose-Instanz unter `http://localhost:8080`, ausgehend von Release 0.4.0. Die ergänzenden Korrekturen werden getrennt vom bereits veröffentlichten Release zur Prüfung bereitgestellt.
 
+Dieser Bericht betrifft ausschließlich die Cloud-Testinstanz. Er enthält keine Aussage über die Anzahl registrierter Geräte auf dem lokalen Rechner oder Proxmox-Host des Betreibers.
+
 ## Laufzeitbefund
 
 - PostgreSQL, Redis, API, Worker, Beat und Caddy laufen. Datenbankprüfung, Celery-Ping und regelmäßige Scheduler-Aufrufe funktionieren; die Celery-Warteschlange war leer.

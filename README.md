@@ -19,6 +19,8 @@ Python 3.12+ · FastAPI · PostgreSQL / JSONB · Celery / Redis · React / TypeS
 
 [Server starten](#mit-docker-starten) · [Agent installieren](agent/README.md) · [API](docs/api.md) · [Architektur](docs/architecture.md) · [Mitentwickeln](CONTRIBUTING.md)
 
+**Neu in 0.5:** Gruppierte Risiken mit allen Binärpaketen, Kernel-/Komponentenkontext, expliziter Fixstatus, gefilterte CSV-Ausgaben, fortsetzbare Abgleiche und gesicherte Windows-Upgrades. [Softwareliste und Upgrade-Hinweise](docs/softwareliste.md).
+
 ![myCVE mit ausdrücklich fiktiven Demo-Daten](docs/images/overview.png)
 
 ## Enthalten
@@ -224,7 +226,7 @@ docs/            Architektur, API, Betrieb und Quellen
 fixtures/        Kleine Beispiele für Importe und Offline-Matching
 ```
 
-## Bewusste Grenzen von 0.4
+## Bewusste Grenzen von 0.5
 
 Diese Version ist ein funktionsfähiger Release für einen gemeinsamen, vertrauenswürdigen Workspace mit getrennten Agent-Schlüsseln. Vollständige CPE-AND/NOT-Konfigurationen über mehrere Installationen, Git-Commit-Ranges, universelle Distributions-Backport-Erkennung, OpenPGP-Verifikation, Mehrbenutzer-Rollen, Benachrichtigungen und EPSS sind noch nicht enthalten. Die automatische Zuordnung kann fehlende Herstellerangaben, mehrdeutige Produkte, fehlende Katalogeinträge oder nicht verfügbare Versionsmetadaten nicht zuverlässig ersetzen; sie protokolliert diese Fälle und versucht sie erneut. Der Agent deckt Linux-Paketmanager, Windows-Registry/Appx und explizite SBOMs ab; portable Software und offline gespeicherte Windows-Benutzerprofile werden nicht vollständig erfasst.
 

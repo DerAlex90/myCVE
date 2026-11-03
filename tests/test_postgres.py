@@ -91,3 +91,46 @@ def test_postgres_automatic_product_identity_and_jsonb_coverage(pg_engine):
         assert coverage(session)["pending"] == 2
         assert identify_inventory(session, items, Catalog())["identified"] == 2
         assert coverage(session)["identified"] == 2
+
+
+def test_postgres_job_creation_serializes_simultaneous_requests(pg_engine):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from mycve.server.jobs import ScanBusy, create_job
+
+    barrier = Barrier(2)
+
+    def attempt():
+        with sessions(pg_engine)() as session:
+            barrier.wait()
+            try:
+                create_job(session)
+                return "created"
+            except ScanBusy:
+                session.rollback()
+                return "busy"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(lambda _: attempt(), range(2))) == ["busy", "created"]
+
+
+def test_postgres_partial_retry_uses_persistent_feed_results(pg_engine, advisory):
+    from test_scan_control import CountingFeeds
+    from test_scanner import run
+
+    from mycve.server.jobs import create_job
+
+    factory = prepare(pg_engine)
+    feeds = CountingFeeds(advisory)
+    feeds.fail_kev = True
+    previous = run(factory, feeds)
+    assert previous.status == "partial"
+    feeds.fail_kev = False
+    with factory() as session:
+        job = create_job(session, resume_id=previous.id)
+        identifier = job.id
+    run_scan(factory, Settings(_env_file=None), identifier, feeds)
+    with factory() as session:
+        assert session.get(ScanJob, identifier).status == "succeeded"
+    assert feeds.calls["osv_details"] == 1
