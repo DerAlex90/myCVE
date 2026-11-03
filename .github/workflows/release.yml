@@ -51,7 +51,7 @@ jobs:
           if not any(r['status'] == 'completed' and r['conclusion'] == 'success' for r in runs):
               raise SystemExit('Wait for successful CI on this exact commit, then run Release again')
           PY
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with: { python-version: "3.12", enable-cache: true }
       - uses: actions/setup-node@v4
         with: { node-version: "24", cache: npm, cache-dependency-path: frontend/package-lock.json }
