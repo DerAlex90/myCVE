@@ -133,7 +133,7 @@ tzdata==2026.6
     #   python-dateutil
 tzlocal==5.4.5
     # via celery
-univers==31.1.0
+univers==32.0.1
     # via mycve-tracker (pyproject.toml)
 uvicorn==0.54.0
     # via mycve-tracker (pyproject.toml)
