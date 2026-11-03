@@ -12,7 +12,7 @@ jobs:
       run:
         working-directory: agent
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v6
         with:
@@ -58,7 +58,7 @@ jobs:
     env:
       MYCVE_TEST_POSTGRES_URL: postgresql+psycopg://mycve:test-only-password@localhost:5432/mycve_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with: { python-version: "3.12", enable-cache: true }
       - run: uv sync --frozen --extra server --extra dev
@@ -72,7 +72,7 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with: { python-version: "3.12", enable-cache: true }
       - uses: actions/setup-node@v4
@@ -94,7 +94,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t mycve:ci .
   agent-e2e:
     needs: [agent, backend]
@@ -112,7 +112,7 @@ jobs:
       MYCVE_SMOKE_POSTGRES_URL: postgresql+psycopg://mycve:test-only-password@localhost:5432/mycve_test
       MYCVE_AGENT_BINARY: /tmp/mycve-agent-ci/mycve-agent/mycve-agent
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with: { python-version: "3.12", enable-cache: true }
       - run: uv sync --frozen --extra server --extra dev
