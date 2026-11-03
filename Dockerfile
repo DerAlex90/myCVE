@@ -18,7 +18,7 @@ RUN --mount=type=bind,source=agent,target=/src/agent,readonly \
     cd /src/agent && GOFLAGS=-mod=readonly go mod download \
     && GOFLAGS=-mod=readonly go run ./cmd/package --out /releases
 
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     MYCVE_FRONTEND_DIR=/app/frontend/dist MYCVE_DATABASE_URL=sqlite:////data/mycve.db
 WORKDIR /app
