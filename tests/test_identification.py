@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 from test_scanner import FixtureFeeds, run
 
-from mycve import Component
+from mycve import Component, match_osv
 from mycve.server.db import Agent, Asset, Finding, Installation, ProductIdentityCache, now, sessions
 from mycve.server.feeds import FeedError
 from mycve.server.identification import (
@@ -99,7 +99,9 @@ def test_existing_agents_are_identified_without_manual_ids_and_share_cache(engin
 
 def test_names_alone_wrong_vendor_platform_and_ambiguity_cannot_confirm():
     assert dictionary_identity("firefox", "", "windows", [product()])["status"] == "unresolved"
-    assert dictionary_identity("mozilla firefox", "", "windows", [product()])["status"] == "unresolved"
+    assert (
+        dictionary_identity("mozilla firefox", "", "windows", [product()])["status"] == "unresolved"
+    )
     assert (
         dictionary_identity("mozilla firefox", "Other Company", "windows", [product()])["status"]
         == "unresolved"
@@ -171,6 +173,22 @@ def test_product_budget_continues_automatically_and_missing_version_stays_unknow
 )
 def test_distribution_namespace_is_derived_automatically_without_upstream_cpe(purl, ecosystem):
     assert Component(name="openssl", purl=purl).ecosystem == ecosystem
+
+
+@pytest.mark.parametrize("ecosystem", ["Ubuntu:24.04:LTS", "Ubuntu:Pro:24.04:LTS", "Ubuntu:24.04"])
+def test_ubuntu_advisory_aliases_match_the_reported_distribution_without_crossing_releases(
+    ecosystem,
+):
+    component = Component(name="openssl", ecosystem="Ubuntu:24.04", version="3.0.2-0ubuntu1")
+    document = {
+        "id": "UBUNTU-test",
+        "affected": [
+            {"package": {"ecosystem": ecosystem, "name": "openssl"}, "versions": ["3.0.2-0ubuntu1"]}
+        ],
+    }
+    assert match_osv(component, document).status == "affected"
+    component.ecosystem = "Ubuntu:22.04"
+    assert match_osv(component, document).status == "unknown"
 
 
 def test_legacy_windows_inventory_discovers_and_checks_cves_automatically(engine, advisory):

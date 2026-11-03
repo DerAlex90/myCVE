@@ -4,7 +4,7 @@ Stand: 3. November 2026. Die Feed- und Compose-Grundprüfung aus 0.2 bleibt doku
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Python-Suite mit SQLite | 89 Tests; vier optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |
+| Python-Suite mit SQLite | 92 Tests; vier optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |
 | PostgreSQL-Integration, separater Schema-Namensraum | 4 Tests: JSONB/Quellen, Scan-Lock-Lebenszyklus, Agentenberichte und automatische Produktzuordnung einschließlich JSONB-Abdeckungsabfragen |
 | Ruff, Formatierung und mypy | Bestanden |
 | TypeScript und Vite-Produktionsbuild | Bestanden |

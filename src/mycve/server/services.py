@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from mycve.core.cpe import match_nvd
 from mycve.core.csaf import match_csaf
 from mycve.core.cve import match_cve
-from mycve.core.identity import canonical_name
+from mycve.core.identity import canonical_ecosystem, canonical_name
 from mycve.core.matching import match_osv
 from mycve.core.models import Affectedness, Component, MatchResult
 from mycve.core.priority import prioritize
@@ -261,7 +261,7 @@ def evaluate(
             for record in records
             if record.source == "OSV"
             and any(
-                package.get("ecosystem") == component.ecosystem
+                canonical_ecosystem(package.get("ecosystem")) == component.ecosystem
                 and canonical_name(component.ecosystem, package.get("name", ""))
                 == canonical_name(component.ecosystem, component.name)
                 for item in record.payload.get("affected", [])
@@ -283,7 +283,9 @@ def evaluate(
         if record.source == "OSV":
             for affected in record.payload.get("affected", []):
                 package = affected.get("package", {})
-                if package.get("ecosystem") == component.ecosystem and canonical_name(
+                if canonical_ecosystem(
+                    package.get("ecosystem")
+                ) == component.ecosystem and canonical_name(
                     component.ecosystem, package.get("name", "")
                 ) == canonical_name(component.ecosystem, component.name):
                     result = match_osv(component, record.payload)

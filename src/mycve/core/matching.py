@@ -1,6 +1,6 @@
 from typing import Any
 
-from mycve.core.identity import canonical_name, package_identity
+from mycve.core.identity import canonical_ecosystem, canonical_name, package_identity
 from mycve.core.models import Affectedness, Component, MatchResult
 from mycve.core.versions import compare_versions
 
@@ -42,9 +42,9 @@ def match_osv(component: Component, advisory: dict[str, Any]) -> MatchResult:
         ecosystem, name = package.get("ecosystem"), package.get("name", "")
         if package.get("purl") and not name:
             ecosystem, name, _ = package_identity(package["purl"])
-        if ecosystem == component.ecosystem and canonical_name(ecosystem, name) == canonical_name(
-            component.ecosystem, component.name
-        ):
+        if canonical_ecosystem(ecosystem) == component.ecosystem and canonical_name(
+            ecosystem, name
+        ) == canonical_name(component.ecosystem, component.name):
             matches.append(affected)
     if not matches:
         return MatchResult(

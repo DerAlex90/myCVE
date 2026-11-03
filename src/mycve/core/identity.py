@@ -14,6 +14,13 @@ PURL_ECOSYSTEMS = {
 }
 
 
+def canonical_ecosystem(ecosystem: str | None) -> str | None:
+    # OSV documents Ubuntu's Pro/LTS suffixes as equivalent ecosystem names.
+    if ecosystem and ecosystem.startswith("Ubuntu:"):
+        return ":".join(part for part in ecosystem.split(":") if part not in {"Pro", "LTS"})
+    return ecosystem
+
+
 def canonical_name(ecosystem: str | None, name: str) -> str:
     if ecosystem == "PyPI":
         return re.sub(r"[-_.]+", "-", name).lower()

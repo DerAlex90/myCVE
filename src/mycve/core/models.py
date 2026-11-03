@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from mycve.core.identity import package_identity
+from mycve.core.identity import canonical_ecosystem, package_identity
 
 
 class Affectedness(StrEnum):
@@ -27,7 +27,7 @@ class Component(BaseModel):
     @model_validator(mode="after")
     def normalize(self):
         self.version = self.version or None
-        self.ecosystem = self.ecosystem or None
+        self.ecosystem = canonical_ecosystem(self.ecosystem or None)
         if self.purl:
             identity = package_identity(self.purl)
             if self.version and identity[2] and self.version != identity[2]:
