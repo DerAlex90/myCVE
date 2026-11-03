@@ -1,0 +1,8 @@
+{
+  "server_url": "https://mycve.example.com",
+  "agent_id": "00000000-0000-4000-8000-000000000000",
+  "token": "mycve_agent_REPLACE_WITH_THE_DEVICE_TOKEN_FROM_SERVER",
+  "interval_seconds": 21600,
+  "allow_insecure_localhost": false,
+  "sbom_paths": []
+}

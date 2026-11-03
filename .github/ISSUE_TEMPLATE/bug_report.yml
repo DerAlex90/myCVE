@@ -1,0 +1,56 @@
+name: Fehler melden
+description: Einen reproduzierbaren Fehler in Server, Agent oder Matching beschreiben.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für einen reproduzierbaren Bericht. Verwende synthetische Beispiele und entferne Schlüssel, Systemnamen und echte Inventare aus Logs. Sicherheitslücken bitte gemäß SECURITY.md privat melden.
+  - type: input
+    id: version
+    attributes:
+      label: Version oder Commit
+      placeholder: "z. B. 0.2.0 oder Commit-SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Bereich
+      options:
+        - Server / API
+        - Linux-Agent
+        - Windows-Agent
+        - Python-Bibliothek / Matching
+        - Weboberfläche
+        - Dokumentation / Installation
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Umgebung
+      description: Betriebssystem, Architektur und Installationsart; bei Paketabgleich auch Ökosystem nennen.
+      placeholder: "z. B. Debian 13, amd64, Docker Compose"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Schritte zur Reproduktion
+      description: Kleine, synthetische Eingaben und genaue Befehle helfen bei der Prüfung.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten und relevante Logs
+      description: Bitte keine Zugangsdaten oder vollständigen Inventarberichte veröffentlichen.
+    validations:
+      required: true

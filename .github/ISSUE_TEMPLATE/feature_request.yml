@@ -1,0 +1,21 @@
+name: Verbesserung vorschlagen
+description: Einen konkreten Anwendungsfall und die gewünschte Verbesserung beschreiben.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Anwendungsfall
+      description: Welches konkrete Problem soll gelöst werden?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Gewünschtes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativen und zusätzlicher Kontext

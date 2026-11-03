@@ -1,0 +1,4 @@
+name,version,ecosystem,purl,cpe,vendor,platform,ref
+requests,2.31.0,PyPI,pkg:pypi/requests@2.31.0,,,,requests
+lodash,4.17.20,npm,pkg:npm/lodash@4.17.20,,,,lodash
+unknown-version,,PyPI,,,,,unknown

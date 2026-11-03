@@ -1,0 +1,6 @@
+{
+  "id": "DEMO-2026-0001",
+  "modified": "2026-11-01T12:00:00Z",
+  "summary": "Fictional advisory for the offline matching example",
+  "affected": [{"package": {"name": "example-http", "ecosystem": "PyPI"}, "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "2.5.0"}]}]}]
+}

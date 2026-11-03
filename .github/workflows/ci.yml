@@ -1,0 +1,121 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  agent:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27"
+          cache-dependency-path: agent/go.sum
+      - run: go test ./...
+      - run: go vet ./...
+      - name: Native Windows service and installer syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem deploy/windows/*.ps1 | ForEach-Object {
+            $tokens = $null; $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          }
+          $env:MYCVE_TEST_WINDOWS_SERVICE = '1'
+          go test ./internal/service -run TestNativeWindowsServiceLifecycle -count=1 -timeout=4m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: go test -race ./...
+        if: runner.os == 'Linux'
+      - run: go run ./cmd/package --out ../dist/agent
+        if: runner.os == 'Linux'
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: agent-distributions
+          path: |
+            dist/agent/*.zip
+            dist/agent/*.tar.gz
+            dist/agent/SHA256SUMS
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mycve
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: mycve_test
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U mycve -d mycve_test" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      MYCVE_TEST_POSTGRES_URL: postgresql+psycopg://mycve:test-only-password@localhost:5432/mycve_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12", enable-cache: true }
+      - run: uv sync --frozen --extra server --extra dev
+      - run: uv run ruff check src tests scripts migrations
+      - run: uv run ruff format --check src tests scripts migrations
+      - run: uv run mypy src/mycve
+      - run: uv run pytest --cov=mycve --cov-report=xml
+      - run: uv run python -m build
+      - uses: actions/upload-artifact@v4
+        with: { name: python-distributions, path: dist/ }
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12", enable-cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: "24", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: uv sync --frozen --extra server --extra dev
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: browser-failures, path: frontend/test-results/ }
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t mycve:ci .
+  agent-e2e:
+    needs: [agent, backend]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mycve
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: mycve_test
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U mycve -d mycve_test" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      MYCVE_SMOKE_POSTGRES_URL: postgresql+psycopg://mycve:test-only-password@localhost:5432/mycve_test
+      MYCVE_AGENT_BINARY: /tmp/mycve-agent-ci/mycve-agent/mycve-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12", enable-cache: true }
+      - run: uv sync --frozen --extra server --extra dev
+      - uses: actions/download-artifact@v4
+        with: { name: agent-distributions, path: dist/agent }
+      - run: mkdir -p /tmp/mycve-agent-ci && tar -xzf dist/agent/mycve-agent-linux-amd64.tar.gz -C /tmp/mycve-agent-ci
+      - run: uv run python scripts/smoke_agent.py

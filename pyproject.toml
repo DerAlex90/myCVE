@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mycve-tracker"
+version = "0.2.0"
+description = "Explainable vulnerability matching and a self-hosted CVE tracker"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+keywords = ["cve", "osv", "sbom", "csaf", "vulnerability"]
+classifiers = ["Programming Language :: Python :: 3", "Topic :: Security"]
+dependencies = ["pydantic>=2.10,<3", "packaging>=24", "packageurl-python>=0.16,<1", "univers>=30,<32", "cvss>=3.4,<4"]
+
+[project.optional-dependencies]
+server = [
+  "fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1", "sqlalchemy>=2.0,<3",
+  "alembic>=1.14,<2", "psycopg[binary]>=3.2,<4", "httpx>=0.28,<1",
+  "celery[redis]>=5.4,<6", "pydantic-settings>=2.7,<3", "python-multipart>=0.0.20,<1",
+  "ijson>=3.4,<4",
+]
+dev = ["pytest>=8,<10", "pytest-cov>=6,<8", "ruff>=0.9,<1", "mypy>=1.14,<3", "build>=1.2,<2"]
+
+[project.urls]
+Repository = "https://github.com/DerAlex90/myCVE"
+
+[project.scripts]
+mycve = "mycve.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mycve"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"migrations" = "mycve/migrations"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
