@@ -11,6 +11,7 @@ RUN npm run build
 FROM golang:1.27-alpine AS agents
 RUN --mount=type=bind,source=agent,target=/src/agent,readonly \
     --mount=type=bind,source=LICENSE,target=/src/LICENSE,readonly \
+    --mount=type=bind,source=NOTICE,target=/src/NOTICE,readonly \
     --mount=type=cache,id=mycve-go-mod,target=/go \
     --mount=type=cache,id=mycve-go-build,target=/root/.cache/go-build \
     --mount=type=secret,id=proxy_ca \
