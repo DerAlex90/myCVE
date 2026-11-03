@@ -64,7 +64,7 @@ jobs:
       - run: go run ./cmd/package --out ../dist/agent
         working-directory: agent
       - run: python scripts/build_release.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ env.RELEASE_TAG }}
           path: dist/releases/${{ env.RELEASE_TAG }}/
