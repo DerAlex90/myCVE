@@ -96,7 +96,7 @@ python-multipart==0.0.33
     # via mycve-tracker (pyproject.toml)
 pyyaml==6.0.3
     # via uvicorn
-redis==6.4.0
+redis==8.1.0
     # via kombu
 semantic-version==2.10.0
     # via univers
