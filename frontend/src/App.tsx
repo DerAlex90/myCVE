@@ -146,6 +146,7 @@ export default function App() {
   const [assetFilter, setAssetFilter] = useState('')
   const [offset, setOffset] = useState(0)
   const [error, setError] = useState('')
+  const [refreshError, setRefreshError] = useState('')
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -155,6 +156,7 @@ export default function App() {
   const [inventoryAsset, setInventoryAsset] = useState<Asset | null>(null)
   const [mobile, setMobile] = useState(false)
   const requestVersion = useRef(0)
+  const refreshing = useRef(false)
 
   useEffect(() => {
     api<AppConfig>('/config')
@@ -197,6 +199,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     if (!authorized) return
     const version = ++requestVersion.current
+    refreshing.current = true
     try {
       const params = new URLSearchParams({
         search: searchQuery,
@@ -219,10 +222,14 @@ export default function App() {
       setFindings(findingsData.items)
       setTotal(findingsData.total)
       setScans(scansData)
+      setRefreshError('')
     } catch (err) {
-      if (version === requestVersion.current) setError(message(err))
+      if (version === requestVersion.current) setRefreshError(message(err))
     } finally {
-      if (version === requestVersion.current) setLoading(false)
+      if (version === requestVersion.current) {
+        refreshing.current = false
+        setLoading(false)
+      }
     }
   }, [authorized, searchQuery, status, priority, workflow, assetFilter, offset])
   useEffect(() => {
@@ -230,11 +237,19 @@ export default function App() {
   }, [refresh])
   const running = scans.some((scan) => ['queued', 'running'].includes(scan.status))
   useEffect(() => {
-    if (running) {
-      const timer = setInterval(() => void refresh(), 4000)
-      return () => clearInterval(timer)
+    if (!authorized) return
+    const update = () => {
+      if (document.visibilityState === 'visible' && !refreshing.current) void refresh()
     }
-  }, [running, refresh])
+    const timer = setInterval(update, running ? 4000 : 15000)
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [authorized, running, refresh])
   const action = async (fn: () => Promise<void>) => {
     setBusy(true)
     setError('')
@@ -465,13 +480,16 @@ export default function App() {
               <span className="demo-pill">DEMO</span>
             </div>
           )}
-          {error && (
+          {(error || refreshError) && (
             <div className="error-banner" role="alert">
               <Icon name="warning" size={18} />
-              <span>{error}</span>
+              <span>{error || refreshError}</span>
               <button
                 className="icon-button"
-                onClick={() => setError('')}
+                onClick={() => {
+                  setError('')
+                  setRefreshError('')
+                }}
                 aria-label="Fehlermeldung schließen"
               >
                 <Icon name="close" size={16} />
@@ -1041,9 +1059,11 @@ export default function App() {
                               ? 'Beispielquelle · keine Live-Daten'
                               : state === 'ok'
                                 ? 'Letzter Abruf erfolgreich'
-                                : state === 'error' || state === 'partial'
-                                  ? 'Abruf prüfen'
-                                  : 'Noch nicht abgeglichen'}
+                                : state === 'skipped'
+                                  ? 'Kein passender Abgleich nötig'
+                                  : state === 'error' || state === 'partial'
+                                    ? 'Abruf prüfen'
+                                    : 'Noch nicht abgeglichen'}
                           </div>
                         </article>
                       )
@@ -1124,9 +1144,11 @@ export default function App() {
                                   <strong>
                                     {state === 'ok'
                                       ? 'Erfolgreich'
-                                      : state === 'demo'
-                                        ? 'Beispiel'
-                                        : 'Prüfen'}
+                                      : state === 'skipped'
+                                        ? 'Nicht benötigt'
+                                        : state === 'demo'
+                                          ? 'Beispiel'
+                                          : 'Prüfen'}
                                   </strong>
                                 </span>
                               ))}

@@ -131,11 +131,13 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
             )
             counts["packages"] = len(packages)
             observations = {}
-            try:
-                observations = client.osv_batch(packages)
-                source_states["OSV"] = "ok"
-            except (FeedError, ValueError, KeyError, TypeError) as exc:
-                error("OSV", exc)
+            source_states["OSV"] = "skipped"
+            if packages:
+                try:
+                    observations = client.osv_batch(packages)
+                    source_states["OSV"] = "ok"
+                except (FeedError, ValueError, KeyError, TypeError) as exc:
+                    error("OSV", exc)
             returned_ids = {alias for ids in observations.values() for alias in ids}
             tracked_ids = set(
                 session.scalars(
@@ -160,6 +162,8 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                         modified=payload.get("modified"),
                     )
                     counts["osv"] += 1
+                    if source_states["OSV"] != "error":
+                        source_states["OSV"] = "ok"
                 except (FeedError, ValueError, KeyError, TypeError) as exc:
                     error("OSV", exc)
             session.commit()
@@ -200,6 +204,9 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                     except (FeedError, ValueError, KeyError, TypeError) as exc:
                         error(source, exc)
                 session.commit()
+
+            for source in ("CVE Program", "NVD"):
+                source_states.setdefault(source, "skipped")
 
             try:
                 catalog = client.kev()

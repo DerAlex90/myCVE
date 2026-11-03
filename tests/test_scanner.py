@@ -8,6 +8,7 @@ from mycve.server.db import (
     Asset,
     Finding,
     FindingEvent,
+    Installation,
     ScanJob,
     SourceRecord,
     Vulnerability,
@@ -107,6 +108,30 @@ def test_source_failure_preserves_findings_and_kev(engine, advisory):
     with factory() as session:
         assert session.scalar(select(Finding)).status == "affected"
         assert session.scalar(select(Vulnerability)).kev
+
+
+def test_empty_inventory_does_not_report_unused_sources_as_successful(engine, advisory):
+    job = run(sessions(engine), FixtureFeeds(advisory))
+    assert job.status == "succeeded"
+    assert job.result["counts"]["packages"] == 0
+    for source in ("OSV", "CVE Program", "NVD"):
+        assert job.result["sources"][source] == "skipped"
+    assert job.result["sources"]["CISA KEV"] == "ok"
+
+
+def test_known_advisories_are_refreshed_without_active_inventory(engine, advisory):
+    factory = prepare(engine)
+    feeds = FixtureFeeds(advisory)
+    run(factory, feeds)
+    with factory() as session:
+        session.scalar(select(Installation)).active = False
+        session.commit()
+    job = run(factory, feeds)
+    assert job.status == "succeeded"
+    assert job.result["counts"]["packages"] == 0
+    assert job.result["counts"]["osv"] == 1
+    for source in ("OSV", "CVE Program", "NVD"):
+        assert job.result["sources"][source] == "ok"
 
 
 def test_complete_negative_response_reassesses_old_match(engine, advisory):

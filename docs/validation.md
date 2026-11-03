@@ -2,6 +2,8 @@
 
 Stand: 3. November 2026. Die Feed- und Compose-Grundprüfungen bleiben dokumentiert. Produktzuordnung und Migrationen wurden für 0.3 geprüft; 0.4 ergänzt die sichtbare Namensnennung und die mitgelieferten Lizenztexte.
 
+Die ergänzende [Prüfung der laufenden Instanz vom 3. November](runtime-review-2026-11-03.md) dokumentiert aktuelle Laufzeitbefunde, Browserkorrekturen und weitere Betriebsverbesserungen.
+
 | Prüfung | Ergebnis |
 | --- | --- |
 | Python-Suite mit SQLite | 94 Tests; vier optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |

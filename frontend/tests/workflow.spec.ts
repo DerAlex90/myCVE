@@ -83,13 +83,81 @@ test('mobile navigation, layout and keyboard close', async ({ page }) => {
   )
 })
 
-test('overview meets automated WCAG AA checks', async ({ page }) => {
+test('workspace pages meet automated WCAG AA checks', async ({ page }) => {
+  await page.route('**/api/agents/downloads', (route) =>
+    route.fulfill({
+      json: [
+        { name: 'mycve-agent-linux-amd64.tar.gz', bytes: 3_000_000 },
+        { name: 'mycve-agent-linux-arm64.tar.gz', bytes: 2_800_000 },
+        { name: 'mycve-agent-windows-amd64.zip', bytes: 3_200_000 },
+        { name: 'mycve-agent-windows-arm64.zip', bytes: 2_900_000 },
+        { name: 'SHA256SUMS', bytes: 400 },
+      ],
+    }),
+  )
   await page.goto('/')
   await expect(page.getByRole('table')).toBeVisible()
+  for (const name of [
+    'Übersicht',
+    'Systeme & Inventar',
+    'Inventar-Agenten',
+    'Datenquellen',
+    'Aktivität',
+    'Python-Bibliothek',
+  ]) {
+    await page
+      .getByRole('navigation', { name: 'Hauptnavigation' })
+      .getByRole('button', { name })
+      .click()
+    if (name === 'Inventar-Agenten')
+      await expect(page.locator('.agent-download').first()).toBeVisible()
+    const result = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze()
+    expect(result.violations, name).toEqual([])
+  }
+})
+
+test('login meets automated WCAG AA checks', async ({ page }) => {
+  await page.route('**/api/config', (route) =>
+    route.fulfill({ json: { authentication_required: true, demo: false, version: '0.4.0' } }),
+  )
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Workspace öffnen' })).toBeVisible()
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze()
   expect(result.violations).toEqual([])
+})
+
+test('background updates appear automatically and a connection error clears on recovery', async ({
+  page,
+}) => {
+  await page.clock.install()
+  let phase: 'initial' | 'offline' | 'updated' = 'initial'
+  await page.route('**/api/overview', async (route) => {
+    if (phase === 'offline') {
+      await route.fulfill({
+        status: 503,
+        json: { detail: 'Verbindung vorübergehend unterbrochen' },
+      })
+      return
+    }
+    const response = await route.fetch()
+    const overview = await response.json()
+    if (phase === 'updated') overview.assets = 37
+    await route.fulfill({ response, json: overview })
+  })
+  await page.goto('/')
+  await expect(page.getByRole('table')).toBeVisible()
+  phase = 'offline'
+  await page.clock.fastForward(16000)
+  await expect(page.getByRole('alert')).toContainText('Verbindung vorübergehend unterbrochen')
+  phase = 'updated'
+  await page.clock.fastForward(16000)
+  const systems = page.locator('.metric').filter({ hasText: 'Überwachte Systeme' })
+  await expect(systems.locator('.metric-value')).toHaveText('37')
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 test('author credit links to the governing public license', async ({ page }) => {

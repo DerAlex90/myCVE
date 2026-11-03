@@ -49,6 +49,8 @@ with httpx.Client(
 
 Erwartete Fehler: `401` für einen fehlenden oder falschen Schlüssel, `404` für unbekannte Objekte, `409` für doppelte Systemnamen oder einen laufenden Scan, `413` für zu große Dateien und `422` für ungültige Eingaben. Ein nicht erreichbarer Hintergrunddienst ergibt `503` und einen nachvollziehbar fehlgeschlagenen Job.
 
+Ein Scan führt in `result.sources` die Quellenzustände `ok`, `error`, `partial` und `skipped`. `skipped` bedeutet, dass kein passendes Inventar beziehungsweise keine zu aktualisierende Meldung für diese Quelle vorhanden war; es bestätigt keinen erfolgreichen Abruf. Bereits bekannte Meldungen werden auch ohne aktive Installationen erneut abgerufen.
+
 Die API setzt keine übergreifende CORS-Freigabe und speichert keine Cookie-Sitzung. Der Browser hält den eingegebenen Schlüssel nur im `sessionStorage` des aktuellen Tabs. Die Instanz muss für den Netzbetrieb über HTTPS bereitgestellt werden.
 
 ## Öffentliche Lizenzhinweise ab 0.4
