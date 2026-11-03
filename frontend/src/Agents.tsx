@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, dateTime, downloadFile, type Asset } from './api'
+import { api, dateTime, downloadFile, type Asset, type Coverage } from './api'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 import './agents.css'
@@ -20,6 +20,7 @@ type Agent = {
   packages: number
   scan_pending: boolean
   incomplete_packages: number
+  identification: Coverage
   collectors: { id: string; complete: boolean; error: string | null; packages: number }[]
 }
 type AgentConfig = {
@@ -267,8 +268,18 @@ export function Agents({
                 {agent.incomplete_packages > 0 && (
                   <p className="agent-pending">
                     <Icon name="info" size={14} />
-                    {agent.incomplete_packages} Pakete benötigen für den CVE-Abgleich eine
-                    eindeutige Kennung oder Version.
+                    Automatische Produktzuordnung: {agent.identification?.identified || 0}{' '}
+                    zugeordnet, {agent.identification?.pending || 0} vorgemerkt,{' '}
+                    {(agent.identification?.unresolved || 0) +
+                      (agent.identification?.ambiguous || 0)}{' '}
+                    noch nicht eindeutig, {agent.identification?.missing_version || 0} ohne
+                    auswertbare Version. Ungeklärte Einträge werden automatisch erneut geprüft.
+                  </p>
+                )}
+                {(agent.identification?.error || 0) > 0 && (
+                  <p className="form-error">
+                    Produktzuordnung vorübergehend fehlgeschlagen. Automatischer
+                    Wiederholungsversuch ist geplant.
                   </p>
                 )}
                 {agent.scan_pending && (

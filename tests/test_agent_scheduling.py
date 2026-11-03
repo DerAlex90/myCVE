@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from sqlalchemy import select
+from test_identification import legacy_devices
 from test_scanner import FixtureFeeds
 
 from mycve import Component
@@ -59,3 +60,32 @@ def test_successful_global_scan_acknowledges_only_older_agent_changes(engine, ad
     with factory() as session:
         assert session.get(ScanJob, job_id).status == "succeeded"
         assert not session.scalar(select(Agent)).scan_pending
+
+
+def test_legacy_unmapped_inventory_is_automatically_queued_without_new_report(engine, monkeypatch):
+    legacy_devices(engine)
+    monkeypatch.setattr(tasks, "make_engine", lambda _: engine)
+    monkeypatch.setattr(engine, "dispose", lambda: None)
+    dispatched = []
+    monkeypatch.setattr(tasks.scan, "delay", dispatched.append)
+    tasks.refresh_agents.run()
+    assert len(dispatched) == 1
+
+
+def test_scheduler_processes_an_entire_fleet_and_preserves_unknowns(engine, monkeypatch):
+    from test_identification import Catalog
+
+    from mycve.server.db import Installation
+    from mycve.server.identification import identify_inventory
+
+    factory = legacy_devices(engine, 685)
+    monkeypatch.setattr(tasks, "make_engine", lambda _: engine)
+    monkeypatch.setattr(engine, "dispose", lambda: None)
+    dispatched = []
+    monkeypatch.setattr(tasks.scan, "delay", dispatched.append)
+    tasks.refresh_agents.run()
+    assert len(dispatched) == 1
+    with factory() as session:
+        items = session.scalars(select(Installation)).all()
+        stats = identify_inventory(session, items, Catalog())
+        assert stats["identified"] == 685 and stats["queries"] == 1

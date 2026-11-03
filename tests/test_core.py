@@ -183,7 +183,7 @@ def test_exact_cpe_and_context():
     assert match_nvd(component, nvd_document()).status == "not_affected"
 
 
-def test_nvd_range_without_version_scheme_is_unknown():
+def test_nvd_numeric_classic_software_versions_are_comparable():
     document = nvd_document(
         cpeMatch=[
             {
@@ -195,6 +195,10 @@ def test_nvd_range_without_version_scheme_is_unknown():
     )
     component = Component(
         name="server", version="1.0", cpe="cpe:2.3:a:example:server:1.0:*:*:*:*:*:*:*"
+    )
+    assert match_nvd(component, document).status == "affected"
+    component = Component(
+        name="server", version="1.0rc1", cpe="cpe:2.3:a:example:server:1.0rc1:*:*:*:*:*:*:*"
     )
     assert match_nvd(component, document).status == "unknown"
 

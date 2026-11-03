@@ -6,9 +6,22 @@ Paketnamen werden nur innerhalb desselben Ökosystems verglichen. PyPI folgt der
 
 Ein Name allein bestätigt keine Produktzuordnung. CVE-CNA-Angaben benötigen einen passenden Hersteller und ein passendes Produkt; angegebene Plattformen müssen ebenfalls geklärt sein. NVD-CPEs berücksichtigen Part, Vendor, Product, Version und weitere Attribute. Wildcard-Inventare können zusätzliche Plattformbedingungen nicht bestätigen.
 
+## Automatische Produktzuordnung
+
+Der Server prüft alle aktiven Installationen automatisch. Bereits vorhandene OSV-/PURL-/CPE-Kennungen werden übernommen. Für klassisches Anwendungsinventar sucht er im [offiziellen NVD-CPE-Katalog](https://nvd.nist.gov/developers/products) und verlangt eine eindeutige Übereinstimmung von Hersteller und Produkt. Produktnamen werden um die gemeldete Version und bekannte Architekturzusätze bereinigt. Ähnliche Namen allein bestätigen keine Zuordnung; widersprüchliche Hersteller, mehrere Produkte und nicht passende Plattformen bleiben ungeklärt.
+
+Die katalogbestätigte Produktidentität wird mit der tatsächlich gemeldeten Version, Plattform und bekannten Architektur kombiniert. Diese zusammengesetzte CPE muss nicht selbst als vollständiger Eintrag im Katalog stehen. Das ursprüngliche Inventar bleibt unverändert; separat gespeichert werden Quelle, Prüfsumme, Katalogbeleg, Entscheidung, Zeitstand und nächster Prüfzeitpunkt. Eine Versions- oder Identitätsänderung verwirft die alte Zuordnung automatisch.
+
+Neue und ausstehende Produkte haben Vorrang. Standardmäßig werden höchstens 50 neue Produktsuchen pro Durchlauf gestartet; weitere folgen automatisch. Katalogseiten werden vollständig bis maximal 50.000 Einträgen geladen, niemals als unvollständiger negativer Beleg verwendet. Ergebnisse werden zwischen Geräten geteilt: bestätigte Produkte sieben Tage, ungeklärte Produkte einen Tag, Abruffehler 15 Minuten. Für fehlende Versionen prüft der Windows-Agent zusätzliche Registry-Werte, MSI-Produktversionen und Hersteller-/Produkt-identische lokale Dateiressourcen. Keine Anwendung wird dafür gestartet.
+
+Bekannte Hersteller-/Markennamen werden anhand begrenzter Regeln vereinheitlicht: [Python Software Foundation](https://www.python.org/psf/), [Mozilla Foundation](https://www.mozilla.org/en-US/foundation/), [The Document Foundation / LibreOffice](https://www.libreoffice.org/about-us/who-are-we/), [Igor Pavlov / 7-Zip](https://www.7-zip.org/), [win.rar / RARLAB](https://www.win-rar.com/), [Adobe Systems](https://www.adobe.com/about-adobe.html), [Git Development Community](https://git-scm.com/) und [OpenSSL](https://www.openssl.org/). Auch diese Namen benötigen anschließend einen passenden offiziellen CPE-Produkteintrag.
+
+Für Debian, Ubuntu und Alpine werden Quellpakete und Distributionsversion verwendet; für AlmaLinux, Rocky Linux und RHEL ihr eigenes RPM-/OSV-Ökosystem. Ein nicht unterstütztes Distributionsinventar wird nicht in die Versionsregeln eines ähnlichen Systems oder eines ungepatchten Upstream-Pakets umgedeutet. Die zugrunde liegenden [OSV-Ökosysteme](https://github.com/google/osv.dev/blob/master/osv/ecosystems/_ecosystems.py) bleiben getrennt.
+
 ## Versionen
 
 - PyPI: PEP 440 über `packaging`.
+- Klassische CPE-Software: numerische, durch Punkte getrennte Versionen, einschließlich vierteiliger Windows-Versionen; andere Formate bleiben ungeklärt.
 - npm und crates.io: SemVer.
 - Go, Maven, NuGet, RubyGems, Packagist, Debian und RPM: die jeweiligen Vergleicher aus `univers`.
 - OSV: explizite Versionen sowie `introduced`, `fixed`, `last_affected` und `limit`. Mehrere betroffene Intervalle und erneute Einführungen werden unterstützt.

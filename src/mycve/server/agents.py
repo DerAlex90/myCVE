@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from mycve.core.models import Component
@@ -24,6 +24,7 @@ from mycve.server.db import (
     now,
     require,
 )
+from mycve.server.identification import coverage, incomplete_filter
 from mycve.server.services import checksum, evaluate
 
 
@@ -54,6 +55,7 @@ class PackageInput(StrictInput):
     cpe: str | None = Field(default=None, max_length=2000)
     source_name: str | None = Field(default=None, max_length=500)
     source_version: str | None = Field(default=None, max_length=300)
+    version_source: str | None = Field(default=None, max_length=100)
 
     def component(self) -> Component:
         return Component(
@@ -151,6 +153,11 @@ def serialize_agent(session, agent: Agent, settings) -> dict:
         "collectors": agent.collectors,
         "last_error": agent.last_error,
         "scan_pending": agent.scan_pending,
+        "identification": coverage(
+            session,
+            Installation.asset_id == asset.id,
+            Installation.origin.like(f"agent:{agent.id}:%"),
+        ),
         **{
             key: (utc(getattr(agent, key)).isoformat() if getattr(agent, key) else None)
             for key in (
@@ -177,11 +184,7 @@ def serialize_agent(session, agent: Agent, settings) -> dict:
                 Installation.asset_id == asset.id,
                 Installation.origin.like(f"agent:{agent.id}:%"),
                 Installation.active.is_(True),
-                Installation.component["cpe"].as_string().is_(None),
-                or_(
-                    Installation.component["ecosystem"].as_string().is_(None),
-                    Installation.component["version"].as_string().is_(None),
-                ),
+                incomplete_filter(),
             )
         ),
     }
@@ -248,6 +251,7 @@ def ingest_inventory(session, agent: Agent, body: InventoryInput) -> dict:
             retained.add(key)
             metadata = package.model_dump(mode="json")
             component = package.component().model_dump()
+            component["platform"] = body.host.os
             installation = existing.get(key)
             before = installation.inventory if installation and installation.active else None
             kind = None
@@ -267,6 +271,10 @@ def ingest_inventory(session, agent: Agent, body: InventoryInput) -> dict:
                 kind = "added"
             elif installation.component != component or installation.inventory != metadata:
                 kind = "updated"
+            if installation.component != component or installation.inventory.get(
+                "architecture"
+            ) != metadata.get("architecture"):
+                installation.identification = {}
             installation.component, installation.inventory = component, metadata
             if kind:
                 installation.updated_at = now()

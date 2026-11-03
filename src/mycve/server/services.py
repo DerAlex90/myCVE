@@ -220,7 +220,9 @@ def evaluate(
     *,
     observation: MatchResult | None = None,
 ) -> Finding:
-    component = Component.model_validate(installation.component)
+    from mycve.server.identification import effective_component
+
+    component = effective_component(installation)
     asset = require(session, Asset, installation.asset_id)
     finding = session.scalar(
         select(Finding).where(
@@ -415,6 +417,8 @@ def import_components(
             session.add(installation)
             session.flush()
         else:
+            if installation.component != component.model_dump():
+                installation.identification = {}
             installation.component = component.model_dump()
             installation.active = True
             installation.updated_at = now()

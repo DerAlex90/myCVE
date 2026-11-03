@@ -1,7 +1,7 @@
 from sqlalchemy import select, text
 
 from mycve.core.matching import match_osv
-from mycve.core.models import Affectedness, Component, MatchResult
+from mycve.core.models import Affectedness, MatchResult
 from mycve.server.config import Settings
 from mycve.server.db import (
     Agent,
@@ -15,6 +15,7 @@ from mycve.server.db import (
     require,
 )
 from mycve.server.feeds import CVE_PATTERN, KEV_URL, OSV_BASE, FeedClient, FeedError
+from mycve.server.identification import effective_component, identify_inventory, nvd_candidates
 from mycve.server.services import (
     aliases_for,
     checksum,
@@ -70,41 +71,58 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                 query = query.where(Installation.asset_id == job.asset_id)
             installations = session.scalars(query).all()
             inventory_before = {item.id: checksum(item.component) for item in installations}
+            identification = identify_inventory(
+                session, installations, client, max_queries=settings.identification_max_queries
+            )
+            counts["identified"] = identification["identified"]
+            counts["identification_pending"] = identification["pending"]
+            source_states["Produktzuordnung"] = "error" if identification["error"] else "ok"
+            if identification["error"]:
+                errors.append(
+                    "Produktzuordnung: NVD-CPE-Abruf fehlgeschlagen; automatischer Wiederholungsversuch ist geplant"
+                )
             cpe_hits: dict[str, set[str]] = {}
             cpe_cache: dict[str, list[dict]] = {}
+            cpe_remote: dict[str, bool] = {}
+            nvd_fetched: set[str] = set()
             # CPE lookups discover candidates for classic software independently of OSV.
             for installation in installations:
-                cpe = installation.component.get("cpe")
+                cpe = effective_component(installation).cpe
                 if not cpe:
                     continue
                 try:
                     if cpe not in cpe_cache:
-                        cpe_cache[cpe] = client.nvd_cpe(cpe)
+                        cpe_cache[cpe], cpe_remote[cpe] = nvd_candidates(session, client, cpe)
                     for candidate in cpe_cache[cpe]:
+                        if candidate["id"] not in nvd_fetched and cpe_remote[cpe]:
+                            counts["nvd"] += 1
+                        nvd_fetched.add(candidate["id"])
                         vulnerability = resolve_vulnerability(session, [candidate["id"]])
-                        record_source(
-                            session,
-                            vulnerability,
-                            source="NVD",
-                            external_id=candidate["id"],
-                            payload=candidate,
-                            url=f"https://nvd.nist.gov/vuln/detail/{candidate['id']}",
-                            modified=candidate.get("lastModified"),
-                        )
+                        if cpe_remote[cpe]:
+                            record_source(
+                                session,
+                                vulnerability,
+                                source="NVD",
+                                external_id=candidate["id"],
+                                payload=candidate,
+                                url=f"https://nvd.nist.gov/vuln/detail/{candidate['id']}",
+                                modified=candidate.get("lastModified"),
+                            )
                         cpe_hits.setdefault(installation.id, set()).add(vulnerability.id)
                     source_states.setdefault("NVD", "ok")
                 except (FeedError, ValueError, KeyError, TypeError) as exc:
                     error("NVD", exc)
             session.commit()
+            components = [effective_component(item) for item in installations]
             packages = sorted(
                 {
                     (
-                        item.component.get("ecosystem"),
-                        item.component["name"],
-                        item.component.get("version"),
+                        component.ecosystem,
+                        component.name,
+                        component.version,
                     )
-                    for item in installations
-                    if item.component.get("ecosystem")
+                    for component in components
+                    if component.ecosystem
                 },
                 key=str,
             )
@@ -151,6 +169,8 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
             }
             for alias in sorted(cve_ids):
                 for source in ("CVE Program", "NVD"):
+                    if source == "NVD" and alias in nvd_fetched:
+                        continue
                     try:
                         enrichment = (
                             client.cve(alias) if source == "CVE Program" else client.nvd(alias)
@@ -269,7 +289,7 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                 refresh_summary(session, vulnerability)
             session.flush()
             for installation in installations:
-                component = Component.model_validate(installation.component)
+                component = effective_component(installation)
                 package = (component.ecosystem, component.name, component.version)
                 ids = observations.get(package)
                 found_vulnerabilities: set[str] = set()
@@ -345,7 +365,12 @@ def run_scan(session_factory, settings: Settings, job_id: str, client: FeedClien
                     )
                 ):
                     agent.scan_pending = False
-            job.result = {"counts": counts, "sources": source_states, "errors": errors[:100]}
+            job.result = {
+                "counts": counts,
+                "identification": identification,
+                "sources": source_states,
+                "errors": errors[:100],
+            }
             job.completed_at = now()
             session.commit()
         except Exception as exc:

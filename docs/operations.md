@@ -14,6 +14,7 @@
 | `MYCVE_AGENT_REPORT_INTERVAL_SECONDS` | 21600; Intervall für neu heruntergeladene Gerätekonfigurationen |
 | `MYCVE_AGENT_STALE_HOURS` | 24; Kontakt nach dieser Zeit als überfällig markieren |
 | `MYCVE_AGENT_MAX_SNAPSHOTS_PER_MINUTE` | 10; neue Berichte je Gerät und Minute, identische Wiederholungen ausgenommen |
+| `MYCVE_IDENTIFICATION_MAX_QUERIES` | 50; neue Produktsuchen pro Durchlauf, Fortsetzung und erneute Versuche erfolgen automatisch |
 | `MYCVE_SITE_ADDRESS` | `http://localhost` |
 | `MYCVE_BIND_ADDRESS` | `127.0.0.1` |
 | `MYCVE_HTTP_PORT` | 8080 |
@@ -65,6 +66,10 @@ Unter **Inventar-Agenten** zunächst jedes Gerät einem System zuordnen, seine e
 Für Agentenupdates das neue Paket mit der vorhandenen Konfiguration installieren; die Installer erhalten das Zustandsverzeichnis und damit die Geräte-ID. Nach einer Neuinstallation mit verlorener Geräte-ID den Schlüssel im Server ausdrücklich mit zurückgesetzter Gerätebindung erneuern. Ein widerrufener Agent kann keine Berichte mehr senden.
 
 Der Standardabstand beträgt sechs Stunden. Nicht bestätigte Berichte bleiben auf dem Gerät gespeichert und werden erneut gesendet. Fehlgeschlagene Paketquellen bleiben als unvollständig sichtbar; ihr bisheriges Inventar wird erhalten. Nach Inventaränderungen plant Beat einen erneuten Abgleich, während weitere Änderungen desselben Zeitfensters gesammelt werden. Deshalb zusätzlich auf ausstehende Prüfungen und Collector-Fehler achten.
+
+Ab 0.3 erfolgt die Produktzuordnung automatisch auch für vorhandene Geräte. Das Datenbankupgrade merkt deren Inventar erneut vor; neue Berichte oder manuelle Kennungen sind dafür nicht nötig. Zuerst den Server aktualisieren, anschließend Agent 0.3 auf Geräten installieren, auf denen die zusätzlichen Windows-Versionsquellen benötigt werden. Konfiguration und Geräteidentität bleiben erhalten. Die Zuordnung funktioniert bereits für von Agent 0.2 gespeicherte Hersteller-/Produkt-/Versionsdaten.
+
+Ohne NVD-Schlüssel begrenzt der Server Abfragen auf das öffentliche NVD-Limit. Ein großes erstes Inventar benötigt deshalb mehrere automatische Durchläufe. Der Status unterscheidet ausstehende, zugeordnete, mehrdeutige, nicht zuordenbare und versionslose Einträge sowie Abruffehler. Nach Abschluss eines Berichts sind weder Inventarimporte noch ein Klick auf „Jetzt abgleichen“ erforderlich.
 
 ## Backup und Wiederherstellung
 

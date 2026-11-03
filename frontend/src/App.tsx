@@ -544,14 +544,15 @@ export default function App() {
                       <Icon name="info" size={18} />
                       <p>
                         <strong>
-                          {overview?.incomplete_components} Komponenten brauchen eine eindeutige
-                          Kennung oder Version.
+                          Automatische Produktzuordnung für {overview?.incomplete_components}{' '}
+                          Komponenten noch offen.
                         </strong>{' '}
-                        Ihr Inventar ist gespeichert. Ein belastbarer CVE-Abgleich ist für diese
-                        Komponenten noch ungeklärt.
+                        Der Server ermittelt Kennungen selbstständig und wiederholt ungeklärte
+                        Abfragen. Fehlende Versionen werden mit neuen Agentenberichten erneut
+                        geprüft. Diese Einträge gelten noch nicht als vollständig abgeglichen.
                       </p>
                       <button className="text-button" onClick={() => go('assets')}>
-                        Inventar prüfen
+                        Status ansehen
                         <Icon name="arrow" size={14} />
                       </button>
                     </div>
@@ -1523,6 +1524,26 @@ function Inventory({
                   <small>
                     Abgleich: {item.name} {item.version}
                   </small>
+                )}
+                {item.identification?.status && (
+                  <small>
+                    Automatische Zuordnung: {item.identification.reason}
+                    {item.identification.checked_at &&
+                      ` · ${dateTime(item.identification.checked_at)}`}
+                  </small>
+                )}
+                {(item.cpe || item.identification?.ecosystem) && (
+                  <small>{item.cpe || item.identification?.ecosystem}</small>
+                )}
+                {item.identification?.url && (
+                  <small>
+                    <a href={item.identification.url} target="_blank" rel="noreferrer">
+                      Produktquelle ansehen
+                    </a>
+                  </small>
+                )}
+                {item.inventory?.version_source && (
+                  <small>Versionsquelle: {item.inventory.version_source}</small>
                 )}
               </span>
               <code>{item.inventory?.version || item.version || 'Version fehlt'}</code>

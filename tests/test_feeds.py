@@ -4,6 +4,30 @@ import pytest
 from mycve.server.feeds import BSI_METADATA, KEV_URL, FeedClient, FeedError
 
 
+def test_official_cpe_dictionary_is_bounded_authenticated_and_complete():
+    def handle(request):
+        assert request.url.path == "/rest/json/cpes/2.0"
+        assert request.url.params["keywordSearch"] == "Mozilla Firefox"
+        assert request.headers["apiKey"] == "test-only-key"
+        return httpx.Response(
+            200,
+            json={
+                "totalResults": 1,
+                "products": [{"cpe": {"cpeName": "cpe:2.3:a:mozilla:firefox:1.0:*:*:*:*:*:*:*"}}],
+            },
+        )
+
+    with FeedClient(transport=httpx.MockTransport(handle), nvd_api_key="test-only-key") as client:
+        assert len(client.cpe_dictionary("Mozilla Firefox")) == 1
+    with FeedClient(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"totalResults": 10001, "products": []})
+        )
+    ) as client:
+        with pytest.raises(FeedError, match="unvollständig"):
+            client.cpe_dictionary("Browser")
+
+
 def test_osv_batch_pagination_retains_package_order():
     requests = []
 
@@ -31,6 +55,29 @@ def test_osv_batch_pagination_retains_package_order():
         "package": {"ecosystem": "PyPI", "name": "example"},
         "version": "1.0",
     }
+
+
+def test_large_cpe_catalog_reads_later_pages_instead_of_missing_chrome_or_python():
+    starts = []
+
+    def handle(request):
+        start = int(request.url.params["startIndex"])
+        starts.append(start)
+        size = 10000 if start == 0 else 1
+        return httpx.Response(
+            200,
+            json={
+                "totalResults": 10001,
+                "products": [
+                    {"cpe": {"cpeName": f"cpe:2.3:a:example:app:{index}:*:*:*:*:*:*:*"}}
+                    for index in range(start, start + size)
+                ],
+            },
+        )
+
+    with FeedClient(transport=httpx.MockTransport(handle), sleep=lambda _: None) as client:
+        assert len(client.cpe_dictionary("Example App")) == 10001
+    assert starts == [0, 10000]
 
 
 def test_truncated_batch_cannot_be_a_negative_match():

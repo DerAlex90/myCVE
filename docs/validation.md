@@ -1,19 +1,23 @@
-# Validierung von Version 0.2.0
+# Validierung von Version 0.3.0
 
-Stand: 2. November 2026. Diese Prüfung beschreibt die hier tatsächlich ausgeführten Schritte; sie ersetzt keine kontinuierliche Betriebsüberwachung.
+Stand: 3. November 2026. Die Feed- und Compose-Grundprüfung aus 0.2 bleibt dokumentiert; Produktzuordnung, Migrationen, Parser und Anwendung wurden für 0.3 erneut geprüft.
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Python-Suite mit SQLite | 72 Tests bestanden; drei optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |
-| PostgreSQL-Integration, separater Schema-Namensraum | 3 Tests bestanden: JSONB/Quellen, Scan-Lock-Lebenszyklus und Agentenberichte einschließlich Inventarabdeckung |
+| Python-Suite mit SQLite | 89 Tests; vier optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |
+| PostgreSQL-Integration, separater Schema-Namensraum | 4 Tests: JSONB/Quellen, Scan-Lock-Lebenszyklus, Agentenberichte und automatische Produktzuordnung einschließlich JSONB-Abdeckungsabfragen |
 | Ruff, Formatierung und mypy | Bestanden |
 | TypeScript und Vite-Produktionsbuild | Bestanden |
 | Browser-Workflows mit Chromium | 5 Tests bestanden: Finding/Belege/Entscheidung/Export, System/Import/Beobachtung, Mobilansicht, automatisierte WCAG-AA-Prüfung der Übersicht sowie Agentenregistrierung/Konfiguration/Inventarempfang/Verlauf/Widerruf |
-| Go-Agent | 14 Tests bestanden, zusätzlich Race Detector und `go vet`: Paketparser, SBOMs, TLS/Weiterleitungen, Bestätigungen, persistente Wiederholung und Prozesssperren |
+| Go-Agent unter Linux | 17 Tests bestanden, zusätzlich Race Detector und `go vet`: Paketparser einschließlich Alpine-Quellpaketen, Versionsmetadaten, SBOMs, TLS/Weiterleitungen, Bestätigungen, persistente Wiederholung und Prozesssperren |
 | Agentenpakete | Linux und Windows für amd64 und arm64 erfolgreich gebaut; Installationsdateien, Lizenzen und SHA-256-Prüfsummen enthalten |
 | Echter Linux-Datensender | 1.437 installierte Pakete über HTTP an isolierte SQLite- und PostgreSQL-Server gesendet; Wiederholung ohne Duplikate, Widerruf, Tokenwechsel, Gerätebindung und Verlauf geprüft |
-| Windows-Dienst | Agent und Diensttest erfolgreich querkompiliert; Installation und SCM-Laufzeittest benötigen Windows und wurden hier nicht ausgeführt. Ein entsprechender Windows-CI-Job ist definiert |
-| Datenbankmigration | Bestehende Inventardaten einer unversionierten 0.1-SQLite-Datenbank beim Upgrade erhalten; PostgreSQL-Upgrade im laufenden Compose-Stack erfolgreich |
+| Windows | Agent und native Collector-Tests querkompiliert. Registry-Versionsfallback, echte Dateiressourcen und der SCM-Diensttest laufen zusätzlich auf dem Windows-CI-Runner; der 0.2-Dienstlauf wurde bereits erfolgreich ausgeführt |
+| Automatischer Gesamtprozess | Agentenbericht → Scheduler → automatischer Scan → Finding ohne manuell gestarteten Scan geprüft |
+| Synthetische Flotte | 685 vorhandene Installationen ohne PURL/CPE automatisch zugeordnet; dasselbe Produkt benötigt geräteübergreifend nur eine Katalogabfrage |
+| Echter CPE-Katalog | Firefox, Chrome, 7-Zip und Python automatisch identifiziert; auch vollständige Kataloge mit 10.625 beziehungsweise 22.788 Einträgen verarbeitet |
+| Echter NVD-Abgleich | Beispielversionen Firefox 128.0 und 7-Zip 24.09 aus den automatisch ermittelten Produktkennungen abgefragt; auswertbare und wegen zusätzlicher Bedingungen ungeklärte Konfigurationen bleiben getrennt |
+| Datenbankmigration | Unversionierte 0.1- und 0.2-Inventare bleiben erhalten; bestehende Geräte werden automatisch erneut eingeplant |
 | Docker-Image | Mehrstufig gebaut und mit unprivilegiertem Anwendungsnutzer gestartet |
 | Docker Compose | PostgreSQL, Redis, API, Celery Worker, Beat und Caddy gestartet; API und Datenbank gesund |
 | Echter Scan durch den Compose-Stack | Inventarimport → Redis/Celery → öffentliche Quellen → PostgreSQL → Findings und Verlauf erfolgreich |

@@ -23,6 +23,7 @@ flowchart LR
 | --- | --- |
 | `assets` | System, Verantwortung, Umgebung, Erreichbarkeit, Kritikalität |
 | `installations` | Konkrete Komponente, Version/PURL/CPE, stabile Identität, Aktivität |
+| `product_identity_cache` | Geräteübergreifende CPE-Produktentscheidungen und kurzfristige CVE-Suchergebnisse mit Ablaufzeit |
 | `vulnerabilities` | Interne Identität und aktuelle zusammengefasste Beschreibung/Metriken |
 | `aliases` | Eindeutige Zuordnung von CVE-, GHSA-, OSV- oder anderen IDs |
 | `source_records` | Originales JSON, Revision, Prüfsumme, Zeitstände und tatsächliche URL |
@@ -37,9 +38,9 @@ Eine Installation kann mehrere Findings haben. Die Kombination aus Installation 
 
 ## Ablauf eines Scans
 
-1. Einen Job persistieren und über Redis an Celery übergeben.
+1. Einen Job nach Inventaränderungen, fälligen Produktprüfungen oder regulärem Zeitplan automatisch persistieren und über Redis an Celery übergeben.
 2. Über eine dedizierte PostgreSQL-Verbindung einen globalen Advisory Lock halten.
-3. Für konkrete CPEs NVD-Kandidaten suchen. Für Pakete OSV-Batches einschließlich aller Seiten abfragen und vollständige Meldungen laden.
+3. Standardisierte Paketidentitäten übernehmen oder Hersteller/Produkt automatisch gegen den CPE-Katalog prüfen. Originalinventar und nachvollziehbare Zuordnung getrennt speichern. Nicht eindeutige Produkte und Abruffehler automatisch erneut vormerken. Für konkrete CPEs NVD-Kandidaten suchen; Suchergebnisse eine Stunde wiederverwenden, damit Fortsetzungen großer Inventare bereits erledigte Abfragen nicht wiederholen. Für Pakete OSV-Batches einschließlich aller Seiten abfragen und vollständige Meldungen laden.
 4. Neue und bereits bekannte CVEs über CVE Program und NVD aktualisieren.
 5. Einen vollständigen KEV-Katalog validieren und die KEV-Signale erneuern.
 6. Öffentliche BSI-Feeds aus den Provider-Metadaten entdecken, streamen, passende Dokumente abrufen und deren TLP-Einstufung prüfen.

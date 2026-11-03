@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const Version = "0.2.0"
+const Version = "0.3.0"
 const MaxBytes = 10_000_000
 const MaxPackages = 10000
 
@@ -33,6 +33,7 @@ type Package struct {
 	CPE           string `json:"cpe,omitempty"`
 	SourceName    string `json:"source_name,omitempty"`
 	SourceVersion string `json:"source_version,omitempty"`
+	VersionSource string `json:"version_source,omitempty"`
 }
 
 type Collector struct {

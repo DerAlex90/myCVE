@@ -1788,9 +1788,13 @@ main {
 }
 .component-list small {
   display: block;
+  overflow-wrap: anywhere;
   font-size: 9px;
   color: #67715d;
   margin-top: 5px;
+}
+.component-list > div > span {
+  min-width: 0;
 }
 .component-list code {
   font-size: 10px;

@@ -1,3 +1,21 @@
+export type Identification = {
+  status?: 'identified' | 'pending' | 'unresolved' | 'ambiguous' | 'missing_version' | 'error'
+  reason?: string
+  cpe?: string
+  ecosystem?: string
+  url?: string
+  checked_at?: string
+  next_check_at?: string
+  candidates?: { cpe: string; cpe_id?: string }[]
+}
+export type Coverage = {
+  identified: number
+  pending: number
+  unresolved: number
+  ambiguous: number
+  missing_version: number
+  error: number
+}
 export type Component = {
   name: string
   version: string | null
@@ -7,12 +25,14 @@ export type Component = {
   ref?: string
   id?: string
   origin?: string
+  identification?: Identification
   inventory?: {
     name: string
     version?: string
     architecture?: string
     source_name?: string
     source_version?: string
+    version_source?: string
   }
 }
 export type Asset = {
@@ -93,6 +113,7 @@ export type Scan = {
   }
 }
 export type Overview = {
+  identification: Coverage
   incomplete_components: number
   assets: number
   components: number

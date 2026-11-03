@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.3.0
+
+- Automatische Produktzuordnung für neue und bereits gespeicherte Inventare anhand des offiziellen NVD-CPE-Katalogs, einschließlich Herstellerprüfung und Quellenbelegen.
+- Geräteübergreifender Produktcache, Fortsetzung großer Inventare und automatische Wiederholungen bei Katalogfehlern oder ungeklärten Produkten.
+- Automatischer OSV-Abgleich für Ubuntu, Alpine, AlmaLinux, Rocky Linux und RHEL; Alpine-Unterpakete verwenden ihr Quellpaket.
+- Windows-Versionsfallback über zusätzliche Registry-Werte, MSI-Versionen und passende lokale Datei-Produktmetadaten.
+- Vergleich numerischer CPE-Versionen einschließlich vierteiliger Windows-Versionen und bekannter Architekturbezeichnungen.
+- Sichtbarer Bearbeitungsstand der automatischen Zuordnung; gemeldetes Inventar bleibt unverändert gespeichert.
+- Datenbankmigration markiert vorhandene Geräte zur automatischen erneuten Prüfung.
+
 ## 0.2.0
 
 - Go-Inventar-Agent für Linux/Windows, amd64/arm64; systemd- und Windows-SCM-Dienstinstallation.

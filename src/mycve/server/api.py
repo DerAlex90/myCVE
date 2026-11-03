@@ -40,6 +40,7 @@ from mycve.server.db import (
     require,
     sessions,
 )
+from mycve.server.identification import coverage, effective_component, incomplete_filter
 from mycve.server.migrate import migrate_schema
 from mycve.server.scanner import run_scan
 from mycve.server.services import (
@@ -242,9 +243,10 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
             "items": [
                 {
                     "id": item.id,
-                    **item.component,
+                    **effective_component(item).model_dump(),
                     "origin": item.origin,
                     "inventory": item.inventory,
+                    "identification": item.identification,
                 }
                 for item in session.scalars(query.offset(offset).limit(limit))
             ],
@@ -311,7 +313,8 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
             "cvss": vulnerability.cvss,
             "kev": vulnerability.kev,
             "kev_due_date": vulnerability.kev_due_date,
-            "component": installation.component,
+            "component": effective_component(installation).model_dump(),
+            "identification": installation.identification,
             "installation_active": installation.active,
             "asset_id": asset.id,
             "asset_name": asset.name,
@@ -496,13 +499,10 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 .select_from(Installation)
                 .where(
                     Installation.active.is_(True),
-                    Installation.component["cpe"].as_string().is_(None),
-                    or_(
-                        Installation.component["ecosystem"].as_string().is_(None),
-                        Installation.component["version"].as_string().is_(None),
-                    ),
+                    incomplete_filter(),
                 )
             ),
+            "identification": coverage(session),
             "open_findings": session.scalar(select(func.count()).select_from(query.subquery())),
             "affected": session.scalar(
                 select(func.count()).select_from(

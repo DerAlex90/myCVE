@@ -55,6 +55,8 @@ func parseDPKG(text, distro, distributionVersion string) ([]protocol.Package, er
 		// OSV Debian tracks source packages and the source version, not the binary version.
 		if distro == "debian" && distributionVersion != "" {
 			item.Ecosystem = "Debian:" + distributionVersion
+		} else if distro == "ubuntu" && distributionVersion != "" {
+			item.Ecosystem = "Ubuntu:" + distributionVersion
 		}
 		packages = append(packages, item)
 	}
@@ -104,8 +106,12 @@ func parseAPK(text, distro, distributionVersion string) ([]protocol.Package, err
 			return nil, fmt.Errorf("incomplete APK record")
 		}
 		item := protocol.Package{ID: values["P"] + ":" + values["A"], Name: values["P"], Version: values["V"], Architecture: values["A"], Publisher: distro}
+		item.SourceName, item.SourceVersion = values["o"], item.Version
+		if item.SourceName == "" {
+			item.SourceName = item.Name
+		}
 		if distro != "" {
-			item.PURL = packagePURL("apk", distro, item.Name, item.Version, item.Architecture, distro+"-"+distributionVersion)
+			item.PURL = packagePURL("apk", distro, item.SourceName, item.Version, item.Architecture, distro+"-"+distributionVersion)
 		}
 		packages = append(packages, item)
 	}

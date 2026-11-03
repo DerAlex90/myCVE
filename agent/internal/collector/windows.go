@@ -42,6 +42,7 @@ func platformCollect(ctx context.Context, host *protocol.Host) []protocol.Collec
 	}
 	installed := protocol.Collector{ID: "windows_registry", Complete: true, Packages: []protocol.Package{}}
 	var failures []string
+	metadataBudget := 256
 	read := func(root registry.Key, scope, path, architecture string, view uint32) {
 		parent, err := registry.OpenKey(root, path, registry.READ|view)
 		if errors.Is(err, registry.ErrNotExist) {
@@ -63,12 +64,14 @@ func platformCollect(ctx context.Context, host *protocol.Host) []protocol.Collec
 				failures = append(failures, scope+": application entry unreadable")
 				continue
 			}
-			displayName, version, publisher := value(child, "DisplayName"), value(child, "DisplayVersion"), value(child, "Publisher")
-			child.Close()
+			displayName, publisher := value(child, "DisplayName"), value(child, "Publisher")
 			if displayName == "" {
+				child.Close()
 				continue
 			}
-			installed.Packages = append(installed.Packages, protocol.Package{ID: StableID(scope + ":" + architecture + ":" + path + ":" + name), Name: bounded(displayName, 500), Version: bounded(version, 300), Publisher: bounded(publisher, 300), Architecture: architecture})
+			version, versionSource := registryVersion(ctx, child, displayName, publisher, &metadataBudget)
+			child.Close()
+			installed.Packages = append(installed.Packages, protocol.Package{ID: StableID(scope + ":" + architecture + ":" + path + ":" + name), Name: bounded(displayName, 500), Version: bounded(version, 300), VersionSource: versionSource, Publisher: bounded(publisher, 300), Architecture: architecture})
 		}
 	}
 	nativeArchitecture := host.Architecture

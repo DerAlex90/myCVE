@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mycve-tracker"
-version = "0.2.0"
+version = "0.3.0"
 description = "Explainable vulnerability matching and a self-hosted CVE tracker"
 readme = "README.md"
 license = "MIT"

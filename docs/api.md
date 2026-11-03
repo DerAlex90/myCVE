@@ -76,7 +76,7 @@ Beispiel eines Berichts:
   "snapshot_id": "11111111-1111-4111-8111-111111111111",
   "device_id": "22222222-2222-4222-8222-222222222222",
   "collected_at": "2026-11-02T12:00:00Z",
-  "agent_version": "0.2.0",
+  "agent_version": "0.3.0",
   "host": {"hostname": "example-host", "os": "linux", "architecture": "amd64"},
   "collectors": [{
     "id": "dpkg",

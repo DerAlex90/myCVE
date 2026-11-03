@@ -16,8 +16,8 @@ func TestDebianUsesSourceIdentityAndKeepsBinaryVersion(t *testing.T) {
 		t.Fatalf("unexpected purl: %s", items[0].PURL)
 	}
 	ubuntu, err := parseDPKG("example\t1.0\tall\t\t\tii \n", "ubuntu", "24.04")
-	if err != nil || ubuntu[0].Ecosystem != "" {
-		t.Fatal("Ubuntu must not be guessed into Debian's vulnerability namespace")
+	if err != nil || ubuntu[0].Ecosystem != "Ubuntu:24.04" {
+		t.Fatal("Ubuntu must use its own vulnerability namespace")
 	}
 }
 
@@ -52,6 +52,13 @@ func TestWindowsAppxDuplicatesAndCoexistingVersions(t *testing.T) {
 	}
 	if parseWindowsAppx([]byte(`{"Name":"incomplete"}`)).Complete {
 		t.Fatal("malformed Appx output must be partial")
+	}
+}
+
+func TestAlpineSubpackagesUseSourcePackageForAdvisories(t *testing.T) {
+	items, err := parseAPK("P:libcrypto3\nV:3.3.1-r0\nA:x86_64\no:openssl\n", "alpine", "3.22")
+	if err != nil || items[0].Name != "libcrypto3" || items[0].SourceName != "openssl" || items[0].SourceVersion != "3.3.1-r0" {
+		t.Fatal("Alpine source package identity lost")
 	}
 }
 

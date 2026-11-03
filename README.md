@@ -9,7 +9,7 @@
 
 myCVE verbindet eine eigenständig verwendbare Python-Bibliothek mit einem selbst betreibbaren CVE-Tracker. Importiere eine SBOM, prüfe konkrete Installationen und verfolge Betroffenheit, Dringlichkeit und Bearbeitung mit nachvollziehbaren Quellen.
 
-**Version 0.2 ergänzt den Go-Inventar-Agenten für Linux und Windows:** Betriebssystem und installierte Pakete erfassen, geschützt an den Server senden, Änderungen speichern und im Web anzeigen. Linux-systemd- und native Windows-Dienste sowie fertige amd64-/arm64-Pakete sind enthalten.
+**Version 0.3 ergänzt die automatische Produktzuordnung:** Der Server ermittelt Kennungen für gemeldete Programme anhand von Hersteller, Produkt und offiziellem NVD-CPE-Katalog und gleicht sie anschließend mit CVEs ab. Bestehende Inventare werden beim Upgrade automatisch aufgenommen. Der Go-Dienst übermittelt Betriebssystem und Pakete für Linux und Windows; manuelle Produktkennungen sind für den regulären Ablauf nicht erforderlich.
 
 Python 3.12+ · FastAPI · PostgreSQL / JSONB · Celery / Redis · React / TypeScript · Docker Compose / Caddy · MIT
 
@@ -69,7 +69,11 @@ Linux: `sudo ./install.sh /pfad/mycve-agent-config.json`. Windows: `.\Install.ps
 
 Die Pakete enthalten Installer, Dokumentation und Lizenzen. Ein `SHA256SUMS`-Manifest liegt bei den Server-Downloads. Der [CI-Workflow](https://github.com/DerAlex90/myCVE/actions/workflows/ci.yml) erzeugt zusätzlich Agentenpakete und Python-Distributionen als herunterladbare Artefakte. Die lokal ausgeführten Prüfungen und die Grenzen des Windows-Nachweises stehen unter [Validierung](docs/validation.md).
 
-Der Agent sendet ausschließlich an den konfigurierten myCVE-Server; der Server führt die externen CVE-Abfragen durch. Der Geräteschlüssel kann nur das zugeordnete Inventar übermitteln und ist separat widerrufbar. Der Workspace-Schlüssel gehört nicht auf Geräte. Vollständige Berichte ersetzen nur ihre eigene Erfassungsquelle; fehlgeschlagene Quellen und manuelle SBOMs bleiben erhalten. Windows-Anwendungsnamen oder RPM-Pakete werden ohne eindeutige Kennung nicht als sicher abgeglichen ausgegeben. Die Oberfläche zeigt solche Lücken ausdrücklich an.
+Nach einmaliger Registrierung und Dienstinstallation erfolgen Erfassung, Übertragung, Produktzuordnung und CVE-Abgleich automatisch. Der Agent sendet ausschließlich an den konfigurierten myCVE-Server; der Server führt die externen Abfragen durch. Der Geräteschlüssel kann nur das zugeordnete Inventar übermitteln und ist separat widerrufbar. Vollständige Berichte ersetzen nur ihre eigene Erfassungsquelle; fehlgeschlagene Quellen und manuelle SBOMs bleiben erhalten.
+
+Windows-Programme werden anhand von Hersteller, Produktnamen und CPE-Katalog identifiziert. Der Agent prüft bei fehlender `DisplayVersion` zusätzliche Registry-Werte, die MSI-Produktversion und passende lokale Datei-Produktmetadaten. Linux verwendet distributionsspezifische OSV-Kennungen für Debian, Ubuntu, Alpine, AlmaLinux, Rocky Linux und RHEL. Für andere Einträge läuft die Prüfung ebenfalls automatisch; ohne ausreichenden Beleg bleibt ihr Ergebnis ungeklärt. Ein fehlender Katalogeintrag oder eine tatsächlich nicht ermittelbare Version ist keine Entwarnung.
+
+Produktabfragen werden über Geräte hinweg zwischengespeichert. Neue Einträge werden zuerst geprüft, größere Inventare automatisch in mehreren Durchläufen bearbeitet. Katalogfehler werden nach 15 Minuten, ungeklärte Zuordnungen nach einem Tag erneut geprüft. Status und Belege erscheinen bei den installierten Komponenten. [Details und Quellen](docs/matching.md#automatische-produktzuordnung).
 
 Geändertes Agent-Inventar wird vom Scheduler zum nächsten globalen Abgleich vorgemerkt. Der Scheduler prüft minütlich und bündelt Anfragen mit einer Mindestpause von fünf Minuten zwischen Scans. Bestehende Findings werden bereits beim Import neu bewertet.
 
@@ -158,7 +162,7 @@ Beim Ersetzen eines Inventars werden fehlende Komponenten inaktiv; vorhandene Fi
 
 ## Daten und Datenschutz
 
-Inventar, Entscheidungen und Quellenrevisionen werden in der eigenen Datenbank gespeichert. **Für Live-Abgleiche sendet myCVE Paketnamen, Ökosysteme und Versionen an OSV sowie CPEs und CVE-IDs an NVD.** CVE- und BSI-Dokumente werden von den jeweiligen öffentlichen Quellen abgerufen. Eigentümer, Systemnamen und Notizen werden diesen Quellen nicht übermittelt. Die Offline-Bibliothek hat keinen Netzwerkzugriff.
+Inventar, Entscheidungen und Quellenrevisionen werden in der eigenen Datenbank gespeichert. **Für Live-Abgleiche sendet myCVE Paketnamen, Ökosysteme und Versionen an OSV sowie Produktnamen für die Katalogsuche, CPEs und CVE-IDs an NVD.** CVE- und BSI-Dokumente werden von den jeweiligen öffentlichen Quellen abgerufen. Eigentümer, Systemnamen und Notizen werden diesen Quellen nicht übermittelt. Die Offline-Bibliothek hat keinen Netzwerkzugriff.
 
 myCVE übernimmt Quelldaten und Zeitstände unverändert als JSON-Werte. Die SHA-256-Prüfsumme bezieht sich auf kanonisch serialisiertes JSON, nicht auf die ursprünglichen HTTP-Bytes. Die tatsächliche Quell-URL, erster Abruf, letzter erfolgreicher Abruf und Quelländerung bleiben erhalten. HTTPS wird geprüft; OpenPGP-Signaturen von CSAF-Dokumenten werden in dieser Version noch nicht verifiziert.
 
@@ -208,9 +212,9 @@ docs/            Architektur, API, Betrieb und Quellen
 fixtures/        Kleine Beispiele für Importe und Offline-Matching
 ```
 
-## Bewusste Grenzen von 0.2
+## Bewusste Grenzen von 0.3
 
-Diese Version ist ein funktionsfähiger Release für einen gemeinsamen, vertrauenswürdigen Workspace mit getrennten Agent-Schlüsseln. Vollständige CPE-AND/NOT-Konfigurationen über mehrere Installationen, Git-Commit-Ranges, automatische CPE-Zuordnung für beliebige Windows-Anwendungen, universelle Distributions-Backport-Erkennung, OpenPGP-Verifikation, Mehrbenutzer-Rollen, Benachrichtigungen und EPSS sind noch nicht enthalten. Solche Matching-Fälle bleiben ungeklärt. Der Agent deckt Linux-Paketmanager, Windows-Registry/Appx und explizite SBOMs ab; portable Software und offline gespeicherte Windows-Benutzerprofile werden nicht vollständig erfasst.
+Diese Version ist ein funktionsfähiger Release für einen gemeinsamen, vertrauenswürdigen Workspace mit getrennten Agent-Schlüsseln. Vollständige CPE-AND/NOT-Konfigurationen über mehrere Installationen, Git-Commit-Ranges, universelle Distributions-Backport-Erkennung, OpenPGP-Verifikation, Mehrbenutzer-Rollen, Benachrichtigungen und EPSS sind noch nicht enthalten. Die automatische Zuordnung kann fehlende Herstellerangaben, mehrdeutige Produkte, fehlende Katalogeinträge oder nicht verfügbare Versionsmetadaten nicht zuverlässig ersetzen; sie protokolliert diese Fälle und versucht sie erneut. Der Agent deckt Linux-Paketmanager, Windows-Registry/Appx und explizite SBOMs ab; portable Software und offline gespeicherte Windows-Benutzerprofile werden nicht vollständig erfasst.
 
 Der Abgleich lädt gezielt bekannte und zum Inventar passende Meldungen. Er spiegelt nicht den gesamten globalen CVE-/NVD-Datenbestand. Änderungen an bekannten Meldungen werden bei jedem Scan erneut abgerufen.
 

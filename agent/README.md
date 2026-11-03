@@ -79,7 +79,13 @@ SBOMs support CycloneDX JSON 1.4–1.7 and are read only from explicitly configu
 
 ## Matching accuracy
 
-Debian reports both binary and source-package versions. OSV matching uses the source name/version and the exact Debian release. RPM/APK packages and Windows applications are stored with their actual names, versions, architecture and vendor information. Their display names are not guessed into CPEs or OSV identities. Additional package ecosystems can be identified through configured SBOM PURLs. Reported Windows OS metadata is not a full Windows patch-compliance assessment.
+After registration and service installation, collection, reporting, product identification and vulnerability scans run automatically. Server 0.3 also processes existing inventories from agent 0.2. Upgrade the server before deploying agent 0.3, which adds optional version-provenance metadata.
+
+Debian, Ubuntu and Alpine use source-package identities and their actual distribution releases. AlmaLinux, Rocky Linux and RHEL use their own OSV namespaces. Other distribution packages remain explicitly unresolved when an authoritative advisory namespace is unavailable; patched distribution versions are not reinterpreted as unpatched upstream releases.
+
+Windows applications are automatically identified by the server against the official NVD CPE dictionary, requiring a matching manufacturer and product. If DisplayVersion is absent, the agent tries alternative registry strings, the packed MSI version and matching local executable ProductVersion metadata. Local executables are read, never launched. Resource lookups are bounded; network/command icon paths and metadata from unrelated products or vendors are rejected. The reported version source is retained for inspection.
+
+The server retries failed or ambiguous identification automatically, and displays coverage and evidence. Missing versions or absent catalog entries remain unknown rather than requiring manual product-ID maintenance or implying an all-clear. Reported Windows OS metadata is not a full Windows patch-compliance assessment.
 
 Complete reports may retire missing packages only within their own collector. Failed or missing collectors retain their prior inventory. Manual SBOM imports have a separate origin. Replay IDs are idempotent, older reports cannot overwrite newer snapshots, and another device ID cannot reuse a bound key. Token rotation supports explicit device-binding reset after a reinstall.
 

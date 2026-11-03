@@ -3,7 +3,7 @@
 import re
 
 from mycve.core.models import Affectedness, Component, MatchResult
-from mycve.core.versions import compare_versions
+from mycve.core.versions import compare_cpe_versions, compare_versions
 
 
 def parse_cpe(value: str) -> list[str]:
@@ -26,6 +26,18 @@ def _complex(node: dict) -> bool:
         or any(not leaf.get("vulnerable", False) for leaf in node.get("cpeMatch", []))
         or any(_complex(child) for child in node.get("nodes", []) + node.get("children", []))
     )
+
+
+def _attribute(value: str, index: int) -> str:
+    if index == 9:
+        return {
+            "amd64": "x64",
+            "x86_64": "x64",
+            "aarch64": "arm64",
+            "i386": "x86",
+            "i686": "x86",
+        }.get(value, value)
+    return value
 
 
 def match_nvd(component: Component, cve: dict) -> MatchResult:
@@ -69,8 +81,8 @@ def match_nvd(component: Component, cve: dict) -> MatchResult:
             undecidable = True
             continue
         if any(
-            wanted != "*" and actual != wanted
-            for actual, wanted in zip(own[4:], target[4:], strict=True)
+            wanted != "*" and _attribute(actual, index) != _attribute(wanted, index)
+            for index, (actual, wanted) in enumerate(zip(own[4:], target[4:], strict=True), 4)
         ):
             continue
         version = component.version or (own[3] if own[3] not in {"*", "-"} else None)
@@ -96,7 +108,11 @@ def match_nvd(component: Component, cve: dict) -> MatchResult:
                 ("versionEndExcluding", "lt"),
             ):
                 if field in leaf:
-                    delta = compare_versions(component.ecosystem or "", version, leaf[field])
+                    delta = (
+                        compare_versions(component.ecosystem, version, leaf[field])
+                        if component.ecosystem
+                        else compare_cpe_versions(version, leaf[field])
+                    )
                     in_range &= {
                         "ge": delta >= 0,
                         "gt": delta > 0,

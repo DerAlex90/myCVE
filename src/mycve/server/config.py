@@ -23,3 +23,4 @@ class Settings(BaseSettings):
     agent_report_interval_seconds: int = Field(default=21600, ge=300, le=604800)
     agent_releases_dir: Path = Path("dist/agent")
     agent_max_snapshots_per_minute: int = Field(default=10, ge=2, le=120)
+    identification_max_queries: int = Field(default=50, ge=1, le=1000)

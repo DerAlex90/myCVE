@@ -30,7 +30,7 @@ func parseWindowsAppx(data []byte) protocol.Collector {
 			continue
 		}
 		seen[id] = true
-		result.Packages = append(result.Packages, protocol.Package{ID: id, Name: entry.Name, Version: entry.Version, Publisher: entry.Publisher, Architecture: entry.Architecture})
+		result.Packages = append(result.Packages, protocol.Package{ID: id, Name: entry.Name, Version: entry.Version, VersionSource: "Appx.Version", Publisher: entry.Publisher, Architecture: entry.Architecture})
 	}
 	return result
 }

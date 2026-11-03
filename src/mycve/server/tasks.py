@@ -4,7 +4,8 @@ from celery import Celery
 from sqlalchemy import select
 
 from mycve.server.config import Settings
-from mycve.server.db import Agent, ScanJob, make_engine, now, sessions
+from mycve.server.db import Agent, Installation, ScanJob, make_engine, now, sessions
+from mycve.server.identification import due_filter
 from mycve.server.scanner import run_scan
 from mycve.server.services import recover_stale_jobs
 
@@ -69,13 +70,14 @@ def refresh_agents():
             pending = session.scalar(
                 select(Agent.id).where(Agent.scan_pending.is_(True), Agent.revoked_at.is_(None))
             )
+            unidentified = session.scalar(select(Installation.id).where(due_filter()).limit(1))
             running = session.scalar(
                 select(ScanJob.id).where(ScanJob.status.in_(["queued", "running"]))
             )
             recent = session.scalar(
                 select(ScanJob.id).where(ScanJob.created_at > now() - timedelta(minutes=5))
             )
-            if not pending or running or recent:
+            if (not pending and not unidentified) or running or recent:
                 return
             job = ScanJob()
             session.add(job)

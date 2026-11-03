@@ -9,10 +9,13 @@ from urllib.parse import quote, urlparse
 import httpx
 import ijson
 
+from mycve import __version__
+
 OSV_BASE = "https://api.osv.dev/v1"
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 KEV_MIRROR_URL = "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json"
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+NVD_CPE_URL = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
 BSI_METADATA = "https://wid.cert-bund.de/.well-known/csaf/provider-metadata.json"
 CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,}")
 PUBLIC_TLP = {"WHITE", "CLEAR"}
@@ -52,7 +55,7 @@ class FeedClient:
             timeout=timeout,
             follow_redirects=False,
             transport=transport,
-            headers={"User-Agent": "myCVE/0.1 (+https://github.com/DerAlex90/myCVE)"},
+            headers={"User-Agent": f"myCVE/{__version__} (+https://github.com/DerAlex90/myCVE)"},
         )
         self.nvd_api_key = nvd_api_key
         self.sleep = sleep
@@ -202,6 +205,44 @@ class FeedClient:
             if len(results) >= total:
                 return results
         raise FeedError("NVD: CPE-Abfrage überschreitet 10000 Treffer")
+
+    def cpe_dictionary(self, name: str) -> list[dict]:
+        """Discover products from the official dictionary, never from CVE keyword hits."""
+        if not 2 <= len(name) <= 300:
+            raise FeedError("Produktname für CPE-Suche ist ungültig")
+        entries: list[dict] = []
+        expected = None
+        for start in range(0, 50000, 10000):
+            interval = 0.7 if self.nvd_api_key else 6.1
+            remaining = interval - (time.monotonic() - self.last_nvd)
+            if remaining > 0:
+                self.sleep(remaining)
+            self.last_nvd = time.monotonic()
+            page = self.json(
+                "GET",
+                NVD_CPE_URL,
+                params={"keywordSearch": name, "resultsPerPage": 10000, "startIndex": start},
+                headers={"apiKey": self.nvd_api_key} if self.nvd_api_key else {},
+            )
+            products, total = page.get("products"), page.get("totalResults")
+            if (
+                not isinstance(products, list)
+                or not isinstance(total, int)
+                or total > 50000
+                or len(products) != min(10000, max(total - start, 0))
+                or (expected is not None and expected != total)
+            ):
+                raise FeedError("NVD-CPE: Produktsuche unvollständig oder über 50000 Treffer")
+            expected = total
+            if any(
+                not isinstance(item.get("cpe"), dict) or not item["cpe"].get("cpeName")
+                for item in products
+            ):
+                raise FeedError("NVD-CPE: Ungültiger Produkteintrag")
+            entries.extend(item["cpe"] for item in products)
+            if len(entries) == total:
+                return entries
+        raise FeedError("NVD-CPE: Paginierungslimit erreicht")
 
     def cve(self, cve_id: str) -> dict | None:
         if not CVE_PATTERN.fullmatch(cve_id):

@@ -57,8 +57,16 @@ class Installation(Base):
         String(150), default="manual", server_default="manual", index=True
     )
     inventory: Mapped[dict] = mapped_column(Json, default=dict, server_default="{}")
+    identification: Mapped[dict] = mapped_column(Json, default=dict, server_default="{}")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ProductIdentityCache(Base):
+    __tablename__ = "product_identity_cache"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    result: Mapped[dict] = mapped_column(Json)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class Vulnerability(Base):

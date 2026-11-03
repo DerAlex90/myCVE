@@ -31,6 +31,22 @@ def package_identity(purl: str) -> tuple[str | None, str, str | None]:
         distro = (parsed.qualifiers or {}).get("distro", "")
         if distro.startswith("debian-"):
             ecosystem = "Debian:" + distro.removeprefix("debian-")
+        elif distro.startswith("ubuntu-"):
+            ecosystem = "Ubuntu:" + distro.removeprefix("ubuntu-")
+    if parsed.type == "apk" and parsed.namespace == "alpine":
+        distro = (parsed.qualifiers or {}).get("distro", "")
+        if re.fullmatch(r"alpine-\d+\.\d+(?:\.\d+)?", distro):
+            ecosystem = "Alpine:v" + ".".join(distro.removeprefix("alpine-").split(".")[:2])
+    if parsed.type == "rpm":
+        distro = (parsed.qualifiers or {}).get("distro", "")
+        for prefix, osv in (
+            ("rocky-", "Rocky Linux"),
+            ("almalinux-", "AlmaLinux"),
+            ("rhel-", "Red Hat"),
+        ):
+            release = distro.removeprefix(prefix)
+            if distro.startswith(prefix) and re.fullmatch(r"\d+(?:\.\d+)*", release):
+                ecosystem = osv + ":" + release.split(".")[0]
     if parsed.type == "maven":
         name = f"{parsed.namespace}:{parsed.name}" if parsed.namespace else parsed.name
     elif parsed.type in {"deb", "rpm", "apk"}:
