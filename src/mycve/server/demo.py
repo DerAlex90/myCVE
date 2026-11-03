@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 """Explicitly fictional data; never a claim about actual CVEs or assets."""
 
 from datetime import timedelta

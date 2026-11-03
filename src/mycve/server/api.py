@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 import csv
 import io
 import secrets
@@ -15,7 +18,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from mycve import __version__
 from mycve.core.importers import import_inventory
+from mycve.legal import AUTHOR, COPYRIGHT, LICENSE_ID, PROJECT_URL, license_text
 from mycve.server.agents import create_agent_router
 from mycve.server.config import Settings
 from mycve.server.db import (
@@ -158,6 +162,20 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
     @app.get("/api/openapi.json", dependencies=auth)
     def schema():
         return app.openapi()
+
+    @app.get("/api/license")
+    def license_info():
+        return {
+            "author": AUTHOR,
+            "copyright": COPYRIGHT,
+            "license": LICENSE_ID,
+            "project_url": PROJECT_URL,
+            "text": license_text(),
+        }
+
+    @app.get("/license", response_class=PlainTextResponse)
+    def public_license():
+        return license_text()
 
     def asset_json(session, asset):
         return {

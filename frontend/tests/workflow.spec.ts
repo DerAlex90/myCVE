@@ -92,6 +92,16 @@ test('overview meets automated WCAG AA checks', async ({ page }) => {
   expect(result.violations).toEqual([])
 })
 
+test('author credit links to the governing public license', async ({ page }) => {
+  await page.goto('/')
+  const credit = page.getByRole('link', { name: '© 2026 Alexander Speka (DerAlex90) · Lizenz' })
+  await expect(credit).toBeVisible()
+  await expect(credit).toHaveAttribute('href', '/license')
+  const response = await page.request.get('/license')
+  expect(response.ok()).toBe(true)
+  expect(await response.text()).toContain('LicenseRef-myCVE-Attribution-1.0')
+})
+
 test('register data sender, receive inventory, inspect changes and revoke access', async ({
   page,
 }) => {

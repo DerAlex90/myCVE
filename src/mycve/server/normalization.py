@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 from cvss import CVSS2, CVSS3, CVSS4, CVSSError
 
 

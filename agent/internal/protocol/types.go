@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Alexander Speka (DerAlex90)
+// SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 package protocol
 
 import (
@@ -6,7 +9,9 @@ import (
 	"time"
 )
 
-const Version = "0.3.0"
+const Version = "0.4.0"
+const Copyright = "Copyright (c) 2026 Alexander Speka (DerAlex90)"
+const LicenseID = "LicenseRef-myCVE-Attribution-1.0"
 const MaxBytes = 10_000_000
 const MaxPackages = 10000
 

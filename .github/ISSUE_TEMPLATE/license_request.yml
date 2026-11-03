@@ -1,0 +1,22 @@
+name: Lizenzanfrage / White Label
+description: Eine unverbindliche Anfrage zu einer gesonderten entgeltlichen Vereinbarung stellen.
+title: "[Lizenzanfrage]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dieses Issue ist öffentlich. Bitte keine Kundendaten, Inventare, Vertragsdetails oder vertraulichen Kontaktangaben eintragen. Eine Anfrage erteilt keine Sonderrechte; dafür ist eine vorherige schriftliche und entgeltliche Vereinbarung mit Alexander Speka (DerAlex90) erforderlich.
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Allgemeiner Anwendungsfall
+      description: Gewünschte Version und Art der Nutzung ohne vertrauliche Angaben beschreiben.
+    validations:
+      required: true
+  - type: textarea
+    id: exception
+    attributes:
+      label: Gewünschte Ausnahme
+      description: Welche eigenen myCVE-Hinweise sollen aufgrund einer Sondervereinbarung anders dargestellt werden?
+    validations:
+      required: true

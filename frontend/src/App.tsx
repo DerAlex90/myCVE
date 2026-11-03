@@ -1,3 +1,6 @@
+/*! Copyright (c) 2026 Alexander Speka (DerAlex90)
+ * SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0 */
+
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   api,
@@ -315,7 +318,10 @@ export default function App() {
             </p>
           </div>
           <span className="login-footer">
-            <Icon name="lock" size={16} /> Selbst betrieben. Unter deiner Kontrolle.
+            <Icon name="lock" size={16} />
+            <a href="/license" target="_blank" rel="noreferrer">
+              © 2026 Alexander Speka (DerAlex90) · Lizenz
+            </a>
           </span>
         </div>
         <form className="login-form" onSubmit={login}>
@@ -372,7 +378,7 @@ export default function App() {
         <div className="workspace-switch">
           <span className="workspace-letter">M</span>
           <div>
-            Mein Workspace<small>Self-hosted · Open Source</small>
+            Mein Workspace<small>Self-hosted · Quellcode einsehbar</small>
           </div>
           <Icon name="lock" size={14} />
         </div>
@@ -1155,7 +1161,10 @@ export default function App() {
           )}
           <footer className="main-footer">
             <span>
-              myCVE<span> · </span>Open Source. Open Intelligence.
+              myCVE<span> · </span>
+              <a href="/license" target="_blank" rel="noreferrer">
+                © 2026 Alexander Speka (DerAlex90) · Lizenz
+              </a>
             </span>
             <span>
               <Icon name="lock" size={12} />
@@ -1916,7 +1925,7 @@ function Library({ onToast }: { onToast: (text: string) => void }) {
         <div>
           <span className="library-chip">
             <Icon name="code" size={14} />
-            PYTHON · MIT-LIZENZ
+            PYTHON · NAMENSNENNUNGSPFLICHT
           </span>
           <h2>
             Nachvollziehbares Matching.

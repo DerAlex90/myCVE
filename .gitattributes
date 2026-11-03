@@ -1,0 +1,2 @@
+# Preserve upstream license text verbatim, including its Markdown whitespace.
+frontend/public/THIRD_PARTY_NOTICES.txt -whitespace

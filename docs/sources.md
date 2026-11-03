@@ -1,6 +1,6 @@
 # Datenquellen und Herkunft
 
-myCVE verwendet offizielle Endpunkte und dokumentiert am jeweiligen Datensatz die tatsächlich verwendete URL. Der Code ist MIT-lizenziert; diese Lizenz ersetzt keine Bedingungen von Meldungstexten und Drittanbietern.
+myCVE verwendet offizielle Endpunkte und dokumentiert am jeweiligen Datensatz die tatsächlich verwendete URL. Die eigene Projektlizenz ersetzt keine Bedingungen von Meldungstexten und Drittanbietern. Ab 0.4.0 gilt die [myCVE Attribution License 1.0](../LICENSE); frühere MIT-Freigaben bleiben unberührt.
 
 | Quelle | Offizieller Einstieg | Verwendung |
 | --- | --- | --- |

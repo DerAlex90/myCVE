@@ -1,3 +1,6 @@
+/*! Copyright (c) 2026 Alexander Speka (DerAlex90)
+ * SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0 */
+
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, dateTime, downloadFile, type Asset, type Coverage } from './api'
 import { Icon } from './Icon'

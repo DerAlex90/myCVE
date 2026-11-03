@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 from typing import Literal
 
 from mycve.core.models import Affectedness, Priority

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Alexander Speka (DerAlex90)
+// SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 // Command package creates reproducible client bundles; it is not part of the agent service.
 package main
 
@@ -52,7 +55,7 @@ func build() error {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
-		files := []entry{{name, binary, 0755}, {"README.md", "README.md", 0644}, {"LICENSE", "../LICENSE", 0644}, {"THIRD_PARTY_NOTICES.txt", "THIRD_PARTY_NOTICES.txt", 0644}, {"config.example.json", "config.example.json", 0600}}
+		files := []entry{{name, binary, 0755}, {"README.md", "README.md", 0644}, {"LICENSE", "../LICENSE", 0644}, {"NOTICE", "../NOTICE", 0644}, {"THIRD_PARTY_NOTICES.txt", "THIRD_PARTY_NOTICES.txt", 0644}, {"config.example.json", "config.example.json", 0600}}
 		archiveName := "mycve-agent-" + target.os + "-" + target.arch
 		if target.os == "linux" {
 			files = append(files, entry{"install.sh", "deploy/linux/install.sh", 0755}, entry{"mycve-agent.service", "deploy/linux/mycve-agent.service", 0644})

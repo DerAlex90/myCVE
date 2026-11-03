@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 """Upgrade existing native/SQLite installs as well as packaged server installations."""
 
 from pathlib import Path

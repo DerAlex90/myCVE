@@ -1,10 +1,17 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 import argparse
 import json
 from pathlib import Path
 
+from mycve import __version__
+from mycve.legal import COPYRIGHT, license_text
+
 
 def main():
     parser = argparse.ArgumentParser(prog="mycve", description="Explainable vulnerability tracking")
+    parser.add_argument("--version", action="version", version=f"myCVE {__version__}\n{COPYRIGHT}")
     sub = parser.add_subparsers(dest="command", required=True)
     match = sub.add_parser("match", help="Match one component against an OSV JSON document offline")
     match.add_argument("--component", type=Path, required=True)
@@ -14,7 +21,13 @@ def main():
         command.add_argument("--host", default="127.0.0.1")
         command.add_argument("--port", type=int, default=8000)
     sub.add_parser("sync", help="Refresh feeds and findings once")
+    sub.add_parser(
+        "license", help="Display attribution and the complete license without server dependencies"
+    )
     args = parser.parse_args()
+    if args.command == "license":
+        print(license_text())
+        return
     if args.command == "match":
         from mycve import Component, match_osv
 

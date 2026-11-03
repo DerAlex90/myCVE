@@ -1,5 +1,7 @@
 # Mitentwickeln
 
+Eigene Beiträge müssen mit der [myCVE Attribution License 1.0](LICENSE) vereinbar sein. Bestehende Namens-, Copyright- und Lizenzhinweise einschließlich der [NOTICE](NOTICE) erhalten. Neue eigene Urhebernennungen können ergänzt werden. Beiträge räumen dem Projektinhaber nicht automatisch eine gesonderte Umlizenzierungsbefugnis an fremden Beiträgen ein; hierfür ist gegebenenfalls eine separate Vereinbarung erforderlich.
+
 Python 3.12+ und Node.js 24+ verwenden. Der Agent benötigt Go 1.26+; die Release-Builds verwenden Go 1.27. Die Abhängigkeiten stehen in `uv.lock`, `requirements-server.txt`, `frontend/package-lock.json` und `agent/go.mod` / `agent/go.sum`. Setup und Prüfungen sind in der [README](README.md#qualität-prüfen) beschrieben.
 
 ## Fehler und Vorschläge

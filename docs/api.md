@@ -51,6 +51,12 @@ Erwartete Fehler: `401` für einen fehlenden oder falschen Schlüssel, `404` fü
 
 Die API setzt keine übergreifende CORS-Freigabe und speichert keine Cookie-Sitzung. Der Browser hält den eingegebenen Schlüssel nur im `sessionStorage` des aktuellen Tabs. Die Instanz muss für den Netzbetrieb über HTTPS bereitgestellt werden.
 
+## Öffentliche Lizenzhinweise ab 0.4
+
+`GET /license` liefert den vollständigen eigenen Lizenztext als UTF-8-Klartext. `GET /api/license` liefert Autor, Copyright, Lizenzkennung, Projekt-URL und Text als JSON. Diese statischen Hinweise sind auch ohne Workspace-Schlüssel erreichbar; Inventar- und Verwaltungsrouten bleiben geschützt. Die Weboberfläche verlinkt sie aus ihrer sichtbaren Namensnennung.
+
+`mycve license` zeigt denselben Text ohne Server-Abhängigkeiten. Agentenpakete enthalten LICENSE, NOTICE und ihre Drittanbieterhinweise; `mycve-agent license` zeigt die Namensnennung und den Verweis auf die vollständigen Bedingungen.
+
 ## Inventar-Agenten ab 0.2
 
 Administrative Routen verwenden weiterhin den Workspace-Schlüssel:

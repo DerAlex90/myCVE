@@ -1,14 +1,15 @@
-# Validierung von Version 0.3.0
+# Validierung bis Version 0.4.0
 
-Stand: 3. November 2026. Die Feed- und Compose-Grundprüfung aus 0.2 bleibt dokumentiert; Produktzuordnung, Migrationen, Parser und Anwendung wurden für 0.3 erneut geprüft.
+Stand: 3. November 2026. Die Feed- und Compose-Grundprüfungen bleiben dokumentiert. Produktzuordnung und Migrationen wurden für 0.3 geprüft; 0.4 ergänzt die sichtbare Namensnennung und die mitgelieferten Lizenztexte.
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Python-Suite mit SQLite | 92 Tests; vier optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |
+| Python-Suite mit SQLite | 94 Tests; vier optionale PostgreSQL-Tests werden ohne Verbindungsvariable ausgelassen |
 | PostgreSQL-Integration, separater Schema-Namensraum | 4 Tests: JSONB/Quellen, Scan-Lock-Lebenszyklus, Agentenberichte und automatische Produktzuordnung einschließlich JSONB-Abdeckungsabfragen |
 | Ruff, Formatierung und mypy | Bestanden |
 | TypeScript und Vite-Produktionsbuild | Bestanden |
-| Browser-Workflows mit Chromium | 5 Tests bestanden: Finding/Belege/Entscheidung/Export, System/Import/Beobachtung, Mobilansicht, automatisierte WCAG-AA-Prüfung der Übersicht sowie Agentenregistrierung/Konfiguration/Inventarempfang/Verlauf/Widerruf |
+| Browser-Workflows mit Chromium | 6 Tests bestanden: bisherige Inventar-/Finding-/Agenten-Workflows, Mobilansicht, automatisierte WCAG-AA-Prüfung und sichtbare Namensnennung mit öffentlichem Lizenzlink |
+| Öffentliche Lizenzhinweise | Volltext auch ohne Workspace-Schlüssel erreichbar, während Inventar geschützt bleibt; CLI funktioniert außerhalb des Projektverzeichnisses ohne Konfiguration |
 | Go-Agent unter Linux | 17 Tests bestanden, zusätzlich Race Detector und `go vet`: Paketparser einschließlich Alpine-Quellpaketen, Versionsmetadaten, SBOMs, TLS/Weiterleitungen, Bestätigungen, persistente Wiederholung und Prozesssperren |
 | Agentenpakete | Linux und Windows für amd64 und arm64 erfolgreich gebaut; Installationsdateien, Lizenzen und SHA-256-Prüfsummen enthalten |
 | Echter Linux-Datensender | 1.437 installierte Pakete über HTTP an isolierte SQLite- und PostgreSQL-Server gesendet; Wiederholung ohne Duplikate, Widerruf, Tokenwechsel, Gerätebindung und Verlauf geprüft |

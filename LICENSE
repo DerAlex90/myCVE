@@ -1,21 +1,81 @@
-MIT License
+myCVE Attribution License 1.0
+SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
 
-Copyright (c) 2026 myCVE contributors
+Copyright (c) 2026 Alexander Speka (DerAlex90)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Diese Lizenz gilt für die vom Rechteinhaber unter dieser Lizenz veröffentlichten
+Bestandteile von myCVE ab Version 0.4.0. Bereits unter MIT veröffentlichten
+Fassungen werden dadurch keine Rechte entzogen.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Erlaubte Nutzung
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Der Rechteinhaber gestattet die private und kommerzielle Nutzung, Vervielfältigung,
+Bearbeitung und Weitergabe der Software in Quell- oder ausführbarer Form, auch als
+Bestandteil anderer Produkte, sofern die folgenden Bedingungen eingehalten werden.
+Hierfür werden keine Lizenzgebühren erhoben. Andere Rechte werden nicht eingeräumt.
+
+2. Copyright, Lizenz und Namensnennung
+
+Der Hinweis "Copyright (c) 2026 Alexander Speka (DerAlex90)", diese Lizenz und die
+Datei NOTICE müssen bei der Weitergabe der Software oder wesentlicher Teile davon
+vollständig erhalten und den Empfängern zugänglich bleiben. Zusätzliche Hinweise
+auf eigene Änderungen und deren Urheber dürfen ergänzt werden. Sie dürfen die
+ursprüngliche Namensnennung nicht ersetzen, verdecken oder irreführend verändern.
+
+Bei einer Anwendung mit Benutzeroberfläche muss die auf myCVE bezogene Nennung
+"Alexander Speka (DerAlex90)" zusammen mit dem Copyright-Hinweis in einem für Nutzer
+erkennbaren und leicht erreichbaren Info-, Lizenz- oder Rechtshinweisbereich stehen.
+Das gilt auch für bearbeitete Fassungen und Anwendungen, die wesentliche Teile von
+myCVE enthalten. Bei Bibliotheken und Diensten ohne Benutzeroberfläche müssen die
+Hinweise in den mitgelieferten Lizenzdateien und der zugehörigen Dokumentation
+zugänglich sein. Bei einem für Dritte angebotenen Netzwerkdienst müssen Nutzer diese
+Hinweise über den Dienst oder seine öffentlich zugängliche Dokumentation erreichen
+können. Die Nennung bezieht sich auf myCVE, nicht auf fremde Bestandteile oder auf
+die Urheberschaft am gesamten abgeleiteten Produkt.
+
+Das Entfernen oder Unterdrücken dieser eigenen Namens-, Copyright- und Lizenzhinweise
+ist ohne die in Abschnitt 3 beschriebene gesonderte Vereinbarung nicht erlaubt.
+
+3. Gesonderte entgeltliche Vereinbarung
+
+Abweichende Rechte, insbesondere eine Ausgabe ohne die eigene sichtbare
+myCVE-Urhebernennung (White Label), können ausschließlich durch eine vorherige,
+gesonderte schriftliche Vereinbarung mit Alexander Speka (DerAlex90) und gegen die
+darin individuell vereinbarte Vergütung eingeräumt werden. Eine Anfrage oder eine
+Zahlung allein erteilt noch keine solchen Rechte. Umfang, betroffene Versionen,
+erlaubte Ausnahmen und Vergütung müssen ausdrücklich vereinbart sein.
+
+Eine gesonderte Vereinbarung kann nur solche Hinweise und Rechte betreffen, über die
+der Rechteinhaber verfügen darf. Zwingendes Recht und die Rechte Dritter bleiben
+unberührt. Die vorliegende Lizenz selbst erteilt keine Erlaubnis zur Entfernung.
+
+4. Fremde Bestandteile und Daten
+
+Abhängigkeiten, Bestandteile Dritter und importierte Schwachstellendaten stehen unter
+ihren jeweiligen Bedingungen. Fremde Copyright-, Lizenz- und Namenshinweise müssen
+nach diesen Bedingungen erhalten bleiben. Diese Lizenz ersetzt diese Bedingungen
+nicht und erlaubt insbesondere nicht, fremde Hinweise gegen Zahlung zu entfernen.
+Beachten Sie insbesondere die mitgelieferten THIRD_PARTY_NOTICES und die Bedingungen
+der verwendeten Datenquellen.
+
+5. Gewährleistung und Haftung
+
+Die Software wird im gesetzlich zulässigen Umfang ohne Zusicherung bestimmter
+Eigenschaften bereitgestellt. Insbesondere wird keine Vollständigkeit der
+Schwachstellenerkennung zugesichert. Zwingende gesetzliche Haftung, insbesondere
+wegen Vorsatzes, grober Fahrlässigkeit oder Verletzung von Leben, Körper oder
+Gesundheit, bleibt unberührt. Im Übrigen gelten die gesetzlichen Vorschriften.
+
+6. Rechtevorbehalt und Kontakt
+
+Die Erlaubnisse gelten nur unter Einhaltung dieser Bedingungen. Es werden keine
+Rechte am Namen oder an Kennzeichen zu irreführender Werbung oder zu einer
+behaupteten Empfehlung fremder Produkte eingeräumt.
+
+Projekt: https://github.com/DerAlex90/myCVE
+Rechteinhaber: Alexander Speka (DerAlex90), https://github.com/DerAlex90
+Anfragen zu abweichenden Lizenzen: siehe docs/licensing.md im Projekt.
+
+Dies ist eine eigene Lizenz mit Namensnennungspflicht, keine MIT-Lizenz und keine als
+solche behauptete OSI-anerkannte Open-Source-Lizenz. Die Veröffentlichung des
+Quellcodes hebt die vorstehenden Bedingungen nicht auf.

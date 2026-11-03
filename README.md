@@ -1,17 +1,21 @@
 # myCVE
 
 [![CI](https://github.com/DerAlex90/myCVE/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DerAlex90/myCVE/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: Attribution](https://img.shields.io/badge/License-Namensnennung-blue.svg)](LICENSE)
 ![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB.svg)
 ![Go 1.26+](https://img.shields.io/badge/Go-1.26%2B-00ADD8.svg)
 
 **Dein Inventar. Deine Schwachstellen. Klare Prioritäten.**
 
+**Von [Alexander Speka (DerAlex90)](https://github.com/DerAlex90) · Copyright © 2026.**
+
+Ab **0.4.0** gilt eine eigene Namensnennungslizenz: Nutzung auch kommerziell kostenfrei unter Erhalt von Namen, Copyright und Lizenzhinweisen. Eine Ausgabe ohne eigene Namensnennung erfordert eine vorherige schriftliche, entgeltliche Vereinbarung. [Lizenzdetails und frühere MIT-Fassungen](docs/licensing.md).
+
 myCVE verbindet eine eigenständig verwendbare Python-Bibliothek mit einem selbst betreibbaren CVE-Tracker. Importiere eine SBOM, prüfe konkrete Installationen und verfolge Betroffenheit, Dringlichkeit und Bearbeitung mit nachvollziehbaren Quellen.
 
 **Version 0.3 ergänzt die automatische Produktzuordnung:** Der Server ermittelt Kennungen für gemeldete Programme anhand von Hersteller, Produkt und offiziellem NVD-CPE-Katalog und gleicht sie anschließend mit CVEs ab. Bestehende Inventare werden beim Upgrade automatisch aufgenommen. Der Go-Dienst übermittelt Betriebssystem und Pakete für Linux und Windows; manuelle Produktkennungen sind für den regulären Ablauf nicht erforderlich.
 
-Python 3.12+ · FastAPI · PostgreSQL / JSONB · Celery / Redis · React / TypeScript · Docker Compose / Caddy · MIT
+Python 3.12+ · FastAPI · PostgreSQL / JSONB · Celery / Redis · React / TypeScript · Docker Compose / Caddy · Namensnennungspflicht
 
 [Server starten](#mit-docker-starten) · [Agent installieren](agent/README.md) · [API](docs/api.md) · [Architektur](docs/architecture.md) · [Mitentwickeln](CONTRIBUTING.md)
 
@@ -175,6 +179,8 @@ myCVE übernimmt Quelldaten und Zeitstände unverändert als JSON-Werte. Die SHA
 - [API-Beispiele](docs/api.md)
 - [Go-Agent, Konfiguration und Dienstinstallation](agent/README.md)
 - [Ausgeführte Validierung](docs/validation.md)
+- [Lizenz, Namensnennung und White Label](docs/licensing.md)
+- [Vorbereitete GitHub-About-Angaben](docs/github-about.md)
 - [Mitentwickeln](CONTRIBUTING.md) · [Sicherheit](SECURITY.md) · [Änderungen](CHANGELOG.md)
 
 Die OpenAPI-Spezifikation ist unter `/api/openapi.json` mit demselben Bearer-Schlüssel verfügbar. `/health` liefert eine einfache Datenbank-Lebendprüfung. Manuelle Einmalabgleiche ohne Oberfläche: `mycve sync` mit derselben Serverkonfiguration.
@@ -220,4 +226,8 @@ Der Abgleich lädt gezielt bekannte und zum Inventar passende Meldungen. Er spie
 
 ## Lizenz
 
-Der Programmcode steht unter der [MIT-Lizenz](LICENSE). Für importierte Meldungen gelten weiterhin die Bedingungen der jeweiligen Datenquelle; siehe [Quellen](docs/sources.md).
+**Copyright (c) 2026 Alexander Speka (DerAlex90).** Ab Version 0.4.0 stehen die eigenen Projektbestandteile unter der [myCVE Attribution License 1.0](LICENSE). Die Namensnennung sowie Copyright- und Lizenzhinweise müssen erhalten bleiben. Abweichungen erfordern eine gesonderte schriftliche und entgeltliche Vereinbarung; normale Nutzung einschließlich kommerzieller Nutzung bleibt unter den Lizenzbedingungen kostenfrei.
+
+Die [NOTICE](NOTICE) gehört in weitergegebene Fassungen. Der Quellcode ist öffentlich einsehbar; diese eigene Lizenz wird nicht als OSI-anerkannte Open-Source-Lizenz bezeichnet. Bereits veröffentlichte Fassungen bis 0.3.0 behalten ihre damaligen MIT-Rechte. [Details und Lizenzanfragen](docs/licensing.md).
+
+Für importierte Meldungen und fremde Bestandteile gelten weiterhin deren Bedingungen; siehe [Quellen](docs/sources.md) und die jeweiligen Drittanbieterhinweise.

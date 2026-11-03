@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 from typing import Any
 
 from mycve.core.identity import canonical_ecosystem, canonical_name, package_identity

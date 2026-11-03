@@ -1,3 +1,6 @@
+/*! Copyright (c) 2026 Alexander Speka (DerAlex90)
+ * SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0 */
+
 export type Identification = {
   status?: 'identified' | 'pending' | 'unresolved' | 'ambiguous' | 'missing_version' | 'error'
   reason?: string

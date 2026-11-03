@@ -1,0 +1,6 @@
+{
+  "repository": "DerAlex90/myCVE",
+  "description": "Automatischer CVE-Tracker mit Inventar-Agenten für Linux und Windows. Python-Bibliothek, nachvollziehbarer Abgleich und Self-Hosting. Von Alexander Speka (DerAlex90).",
+  "homepage": "https://github.com/DerAlex90/myCVE#readme",
+  "topics": ["cve", "vulnerability-management", "software-inventory", "inventory-agent", "sbom", "csaf", "osv", "nvd", "self-hosted", "python", "golang", "linux", "windows", "source-available", "attribution"]
+}

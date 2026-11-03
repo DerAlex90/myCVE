@@ -1,5 +1,12 @@
 # Änderungen
 
+## 0.4.0
+
+- Namensnennung und Copyright für Alexander Speka (DerAlex90) in README, Oberfläche, CLI und Paketen.
+- Eigene Namensnennungslizenz für neue Fassungen: kostenfreie Nutzung auch kommerziell bei Erhalt der Hinweise; White Label nur nach gesonderter schriftlicher, entgeltlicher Vereinbarung.
+- Frühere MIT-Rechte und fremde Lizenzhinweise bleiben ausdrücklich erhalten.
+- Öffentliche Lizenzansicht und NOTICE in Python- und Agentenpaketen.
+
 ## 0.3.0
 
 - Automatische Produktzuordnung für neue und bereits gespeicherte Inventare anhand des offiziellen NVD-CPE-Katalogs, einschließlich Herstellerprüfung und Quellenbelegen.

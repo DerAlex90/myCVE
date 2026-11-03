@@ -26,7 +26,7 @@ COPY requirements-server.txt ./
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi; \
     pip install --no-cache-dir -r requirements-server.txt
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY src/ src/
 COPY migrations/ migrations/
 RUN --mount=type=secret,id=proxy_ca \

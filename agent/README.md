@@ -1,5 +1,7 @@
 # myCVE inventory agent
 
+Copyright (c) 2026 **Alexander Speka (DerAlex90)**. From 0.4.0, the project's own code uses the **myCVE Attribution License 1.0**. Use, including commercial use, is free under its attribution requirements. Keep LICENSE, NOTICE and all required third-party notices. Removing the project's own attribution requires a prior separate paid written agreement. Earlier MIT releases retain their existing rights. Run `mycve-agent license` to display the attribution and license reference; the complete governing text is included in LICENSE.
+
 A small Go data sender for Linux and Windows. It reports system information and installed packages to the self-hosted myCVE server. The server stores inventory, changes and collector errors and schedules vulnerability checks. No desktop UI or Python installation is needed on monitored devices.
 
 ## Register a device

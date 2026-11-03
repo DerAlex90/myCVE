@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Alexander Speka (DerAlex90)
+# SPDX-License-Identifier: LicenseRef-myCVE-Attribution-1.0
+
 """CVE 5 CNA product/version assertions with explicit version schemes."""
 
 from mycve.core.models import Affectedness, Component, MatchResult
