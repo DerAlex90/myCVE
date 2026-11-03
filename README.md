@@ -205,6 +205,12 @@ Die Tests decken Versionsgrenzen, Ökosysteme, Alias-Brücken, Revisionen, wider
 
 Für den Agenten: `cd agent && go test ./... && go vet ./...`. `go run ./cmd/package --out ../dist/agent` erstellt die Downloads. `uv run python scripts/smoke_agent.py` prüft den gebauten Linux-Agenten gegen einen temporären echten HTTP-Server, einschließlich Schlüsselwiderruf und Wiederaufnahme. Ein isolierter nativer Windows-Diensttest ist für den Windows-CI-Runner hinterlegt.
 
+## Releases erstellen
+
+Nach dem Web-, Python- und Agentenbuild erstellt `python scripts/build_release.py` das vollständige Projektpaket und die geprüften Downloads mit SHA-256-Prüfsummen unter `dist/releases/v<VERSION>/`. Dabei werden nur versionierte Quellen und die vorgesehenen Build-Dateien aufgenommen; lokale Konfiguration und Inventardaten bleiben außerhalb des Pakets.
+
+Der GitHub-Workflow **Release** baut und veröffentlicht diese Dateien bei einem passenden `v<VERSION>`-Tag. Vorher muss die CI für genau diesen Commit erfolgreich beendet sein; außerdem muss eine Datei `.github/release-notes/v<VERSION>.md` vorliegen. Falls der Tag vor Abschluss der CI gepusht wurde, kann **Release** anschließend mit diesem vorhandenen Tag manuell gestartet werden. Bereits veröffentlichte Releases werden nicht automatisch überschrieben.
+
 ## Projektstruktur
 
 ```text
@@ -218,7 +224,7 @@ docs/            Architektur, API, Betrieb und Quellen
 fixtures/        Kleine Beispiele für Importe und Offline-Matching
 ```
 
-## Bewusste Grenzen von 0.3
+## Bewusste Grenzen von 0.4
 
 Diese Version ist ein funktionsfähiger Release für einen gemeinsamen, vertrauenswürdigen Workspace mit getrennten Agent-Schlüsseln. Vollständige CPE-AND/NOT-Konfigurationen über mehrere Installationen, Git-Commit-Ranges, universelle Distributions-Backport-Erkennung, OpenPGP-Verifikation, Mehrbenutzer-Rollen, Benachrichtigungen und EPSS sind noch nicht enthalten. Die automatische Zuordnung kann fehlende Herstellerangaben, mehrdeutige Produkte, fehlende Katalogeinträge oder nicht verfügbare Versionsmetadaten nicht zuverlässig ersetzen; sie protokolliert diese Fälle und versucht sie erneut. Der Agent deckt Linux-Paketmanager, Windows-Registry/Appx und explizite SBOMs ab; portable Software und offline gespeicherte Windows-Benutzerprofile werden nicht vollständig erfasst.
 

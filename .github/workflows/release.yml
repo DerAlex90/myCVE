@@ -1,0 +1,78 @@
+name: Release
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish after successful CI
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+      - name: Verify tag, version and successful CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess, tomllib
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag) or tag != f'v{version}':
+              raise SystemExit('Tag must match the stable project version')
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          tagged = subprocess.check_output(['git', 'rev-parse', f'refs/tags/{tag}^{{commit}}'], text=True).strip()
+          if sha != tagged:
+              raise SystemExit('Checkout does not match the version tag')
+          if not Path(f'.github/release-notes/{tag}.md').is_file():
+              raise SystemExit('Release notes are required')
+          runs = json.loads(subprocess.check_output([
+              'gh', 'run', 'list', '--repo', os.environ['GITHUB_REPOSITORY'],
+              '--workflow', 'ci.yml', '--commit', sha, '--event', 'push',
+              '--json', 'status,conclusion', '--limit', '50'], text=True))
+          if not any(r['status'] == 'completed' and r['conclusion'] == 'success' for r in runs):
+              raise SystemExit('Wait for successful CI on this exact commit, then run Release again')
+          PY
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12", enable-cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: "24", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - uses: actions/setup-go@v6
+        with: { go-version: "1.27", cache-dependency-path: agent/go.sum }
+      - run: uv sync --frozen --extra dev
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: uv run python -m build
+      - run: go run ./cmd/package --out ../dist/agent
+        working-directory: agent
+      - run: python scripts/build_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ env.RELEASE_TAG }}
+          path: dist/releases/${{ env.RELEASE_TAG }}/
+      - name: Publish versioned downloads and license notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --title "myCVE ${RELEASE_TAG#v}" \
+            --notes-file ".github/release-notes/$RELEASE_TAG.md" \
+            dist/releases/"$RELEASE_TAG"/*
