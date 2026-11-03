@@ -99,6 +99,7 @@ def test_existing_agents_are_identified_without_manual_ids_and_share_cache(engin
 
 def test_names_alone_wrong_vendor_platform_and_ambiguity_cannot_confirm():
     assert dictionary_identity("firefox", "", "windows", [product()])["status"] == "unresolved"
+    assert dictionary_identity("mozilla firefox", "", "windows", [product()])["status"] == "unresolved"
     assert (
         dictionary_identity("mozilla firefox", "Other Company", "windows", [product()])["status"]
         == "unresolved"

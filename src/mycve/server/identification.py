@@ -98,7 +98,7 @@ def dictionary_identity(name: str, publisher: str, platform: str, products: list
             if title.get("lang") == "en"
         ]
         aliases = {words(fields[2]), words(fields[1] + " " + fields[2]), *titles}
-        manufacturer_matches = vendor == cpe_vendor if vendor else own.startswith(cpe_vendor + " ")
+        manufacturer_matches = bool(vendor) and vendor == cpe_vendor
         if vendor:
             # E.g. vendor "7-zip" and title "7-Zip", or publisher "VideoLAN" / product VLC.
             aliases |= {cpe_vendor + " " + alias for alias in list(aliases)}
