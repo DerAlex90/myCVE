@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24-bookworm-slim AS frontend
+FROM node:26-bookworm-slim AS frontend
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=secret,id=proxy_ca \
