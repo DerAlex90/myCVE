@@ -59,7 +59,7 @@ jobs:
       MYCVE_TEST_POSTGRES_URL: postgresql+psycopg://mycve:test-only-password@localhost:5432/mycve_test
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with: { python-version: "3.12", enable-cache: true }
       - run: uv sync --frozen --extra server --extra dev
       - run: uv run ruff check src tests scripts migrations
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with: { python-version: "3.12", enable-cache: true }
       - uses: actions/setup-node@v4
         with: { node-version: "24", cache: npm, cache-dependency-path: frontend/package-lock.json }
@@ -113,7 +113,7 @@ jobs:
       MYCVE_AGENT_BINARY: /tmp/mycve-agent-ci/mycve-agent/mycve-agent
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with: { python-version: "3.12", enable-cache: true }
       - run: uv sync --frozen --extra server --extra dev
       - uses: actions/download-artifact@v4
