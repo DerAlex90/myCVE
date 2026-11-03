@@ -6,7 +6,10 @@
 package service
 
 import (
+	"archive/tar"
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -114,7 +117,10 @@ func TestNativeWindowsInstallerTransaction(t *testing.T) {
 		t.Skip("existing service must not be replaced")
 	}
 	manager.Disconnect()
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "program data with spaces")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
 	binary := filepath.Join(dir, "mycve-agent.exe")
 	command := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", binary, "../../cmd/mycve-agent")
 	if output, err := command.CombinedOutput(); err != nil {
@@ -157,7 +163,8 @@ func TestNativeWindowsInstallerTransaction(t *testing.T) {
 		exec.Command(destination, "service", "stop").Run()
 		exec.Command(destination, "service", "uninstall").Run()
 	}()
-	if err := install(binary); err != nil {
+	legacy := buildLegacyAgent040(t, dir)
+	if err := install(legacy); err != nil {
 		t.Fatalf("initial installation: %v", err)
 	}
 	select {
@@ -237,4 +244,56 @@ foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIde
 	if output, err := aclCheck.CombinedOutput(); err != nil {
 		t.Fatalf("configuration ACL: %s %v", output, err)
 	}
+}
+
+func buildLegacyAgent040(t *testing.T, destination string) string {
+	t.Helper()
+	archive, err := exec.Command("git", "-C", "../../..", "archive", "v0.4.0", "agent").Output()
+	if err != nil {
+		t.Fatalf("0.4.0 tag is required for the upgrade test: %v", err)
+	}
+	directory := filepath.Join(destination, "legacy-source")
+	reader := tar.NewReader(bytes.NewReader(archive))
+	for {
+		entry, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		relative := strings.TrimPrefix(entry.Name, "agent/")
+		if relative == "" {
+			continue
+		}
+		if !filepath.IsLocal(filepath.FromSlash(relative)) {
+			t.Fatal("unsafe archive path")
+		}
+		target := filepath.Join(directory, filepath.FromSlash(relative))
+		if entry.Typeflag == tar.TypeDir {
+			if err := os.MkdirAll(target, 0755); err != nil {
+				t.Fatal(err)
+			}
+		} else if entry.Typeflag == tar.TypeReg {
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				t.Fatal(err)
+			}
+			file, err := os.Create(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, copyErr := io.Copy(file, reader)
+			file.Close()
+			if copyErr != nil {
+				t.Fatal(copyErr)
+			}
+		}
+	}
+	binary := filepath.Join(destination, "legacy-0.4.exe")
+	build := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", binary, "./cmd/mycve-agent")
+	build.Dir = directory
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("legacy build: %s %v", output, err)
+	}
+	return binary
 }
