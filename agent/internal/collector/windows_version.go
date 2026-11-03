@@ -14,9 +14,35 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+func localMetadataPath(path string) bool {
+	volume := filepath.VolumeName(path)
+	if len(volume) != 2 || volume[1] != ':' || !filepath.IsAbs(path) {
+		return false
+	}
+	root := volume + `\`
+	wide, err := windows.UTF16PtrFromString(root)
+	if err != nil || windows.GetDriveType(wide) != windows.DRIVE_FIXED {
+		return false
+	}
+	// Walk from the volume root, refusing junctions before accessing their children.
+	current := root
+	for _, part := range strings.Split(strings.TrimPrefix(filepath.Clean(path), root), `\`) {
+		current = filepath.Join(current, part)
+		wide, err = windows.UTF16PtrFromString(current)
+		if err != nil {
+			return false
+		}
+		attributes, err := windows.GetFileAttributes(wide)
+		if err != nil || attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func fileProductMetadata(path string) (version, product, company string) {
-	path, err := filepath.EvalSymlinks(path)
-	if err != nil || !localWindowsBinary.MatchString(path) {
+	path = filepath.Clean(path)
+	if !localWindowsBinary.MatchString(path) || !localMetadataPath(path) {
 		return "", "", ""
 	}
 	var handle windows.Handle
@@ -59,6 +85,9 @@ func registryVersion(ctx context.Context, key registry.Key, display, publisher s
 			return version, "registry.MSI.Version"
 		}
 	}
+	if *budget <= 0 {
+		return "", ""
+	}
 	paths := []string{}
 	if path := iconBinaryPath(value(key, "DisplayIcon")); path != "" {
 		paths = append(paths, path)
@@ -66,6 +95,9 @@ func registryVersion(ctx context.Context, key registry.Key, display, publisher s
 	directory := strings.Trim(value(key, "InstallLocation"), `"`)
 	if len(directory) > 3 && directory[1] == ':' && directory[2] == '\\' {
 		for _, location := range []string{directory, filepath.Join(directory, "bin")} {
+			if !localMetadataPath(location) {
+				continue
+			}
 			folder, err := os.Open(location)
 			if err != nil {
 				continue

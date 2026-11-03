@@ -69,7 +69,13 @@ func platformCollect(ctx context.Context, host *protocol.Host) []protocol.Collec
 				child.Close()
 				continue
 			}
-			version, versionSource := registryVersion(ctx, child, displayName, publisher, &metadataBudget)
+			budget := &metadataBudget
+			if scope == "user" {
+				// An unprivileged user controls these paths; SYSTEM reads registry metadata only.
+				noFileLookups := 0
+				budget = &noFileLookups
+			}
+			version, versionSource := registryVersion(ctx, child, displayName, publisher, budget)
 			child.Close()
 			installed.Packages = append(installed.Packages, protocol.Package{ID: StableID(scope + ":" + architecture + ":" + path + ":" + name), Name: bounded(displayName, 500), Version: bounded(version, 300), VersionSource: versionSource, Publisher: bounded(publisher, 300), Architecture: architecture})
 		}

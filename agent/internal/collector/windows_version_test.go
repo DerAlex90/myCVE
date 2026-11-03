@@ -41,3 +41,17 @@ func TestWindowsReadsProductVersionWithoutExecutingBinary(t *testing.T) {
 		t.Fatal("native version-resource API returned incomplete metadata")
 	}
 }
+
+func TestWindowsMetadataRejectsNetworkAndReparsePaths(t *testing.T) {
+	if localMetadataPath(`\\server\share\app.exe`) {
+		t.Fatal("network path accepted")
+	}
+	directory := t.TempDir()
+	link := filepath.Join(directory, "redirect")
+	if err := os.Symlink(os.Getenv("SystemRoot"), link); err != nil {
+		t.Skip("symlink creation not permitted in this environment")
+	}
+	if localMetadataPath(filepath.Join(link, "System32", "kernel32.dll")) {
+		t.Fatal("reparse point followed")
+	}
+}
