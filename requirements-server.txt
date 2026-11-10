@@ -82,7 +82,7 @@ pydantic==2.14.2
     #   mycve-tracker (pyproject.toml)
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.2
+pydantic-core==2.50.4
     # via pydantic
 pydantic-settings==2.16.2
     # via mycve-tracker (pyproject.toml)
